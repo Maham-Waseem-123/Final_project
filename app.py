@@ -148,13 +148,15 @@ elif page == "Reservoir Prediction":
         'Surface Longitude'
     ]
 
+    # Fill NaN values to avoid errors
+    df[input_features] = df[input_features].fillna(df[input_features].mean())
+
     input_data = {}
     for col in input_features:
-        # Use min, max, mean from dataset for slider ranges
         min_val = float(df[col].min())
         max_val = float(df[col].max())
         mean_val = float(df[col].mean())
-        input_data[col] = st.slider(col, min_val, max_val, mean_val)
+        input_data[col] = st.slider(col, min_value=min_val, max_value=max_val, value=mean_val)
 
     st.subheader("Cost Parameters")
     base_drilling_cost = st.slider("Base Drilling Cost ($/ft)", 500, 5000, 1000)
