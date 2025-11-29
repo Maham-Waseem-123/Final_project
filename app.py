@@ -113,34 +113,58 @@ if page == "Economic Analysis":
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
 
-# ---------------------------
-# PAGE 2: Reservoir Engineering Dashboard
-# ---------------------------
-
-if page == "Reservoir Engineering Dashboard":
+elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     
-    # 1. Production vs Depth (Scatter + Line)
+    # -------------------------------
+    # Clean column names
+    # -------------------------------
+    df.columns = df.columns.str.strip()           # remove leading/trailing spaces
+    df.columns = df.columns.str.replace('\n','') # remove line breaks
+    df.columns = df.columns.str.replace('\xa0','') # remove non-breaking spaces
+    
+    # -------------------------------
+    # 1. Production vs Depth (highlight top 10% productive wells)
+    # -------------------------------
     st.subheader("Production vs Depth")
-    fig_depth = px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', 
-                           color='Porosity (decimal)',
-                           title="Production vs Depth",
-                           labels={'Depth (feet)':'Depth (ft)', 'Production (MMcfge)':'Production (MMcfge)'},
-                           hover_data=['ID'])
-    fig_depth.update_traces(mode='markers+lines')  # Scatter + Line to detect optimal depth
+    
+    # Determine top 10% productive wells
+    threshold = df['Production (MMcfge)'].quantile(0.90)
+    df['Top_Production'] = np.where(df['Production (MMcfge)'] >= threshold, 'Top 10%', 'Others')
+    
+    fig_depth = px.scatter(df, 
+                           x='Depth (feet)', 
+                           y='Production (MMcfge)', 
+                           color='Top_Production',
+                           title="Production vs Depth (Top 10% Highlighted)",
+                           labels={'Depth (feet)': 'Depth (ft)', 'Production (MMcfge)': 'Production (MMcfge)'},
+                           hover_data=['ID', 'Porosity (decimal)'])
+    
+    # Add line connecting points for easier trend detection
+    fig_depth.update_traces(mode='markers+lines', marker=dict(size=8))
+    
     st.plotly_chart(fig_depth, use_container_width=True)
     
-    # 2. Production vs Porosity (Scatter + Regression)
+    # -------------------------------
+    # 2. Production vs Porosity (scatter + regression)
+    # -------------------------------
     st.subheader("Production vs Porosity")
-    fig_porosity = px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', 
+    
+    fig_porosity = px.scatter(df, 
+                              x='Porosity (decimal)', 
+                              y='Production (MMcfge)', 
                               trendline="ols",
                               title="Production vs Porosity",
-                              labels={'Porosity (decimal)':'Porosity', 'Production (MMcfge)':'Production (MMcfge)'},
-                              hover_data=['ID'])
+                              labels={'Porosity (decimal)': 'Porosity', 'Production (MMcfge)': 'Production (MMcfge)'},
+                              hover_data=['ID', 'Depth (feet)'])
+    
     st.plotly_chart(fig_porosity, use_container_width=True)
     
+    # -------------------------------
     # 3. Stimulation Effectiveness (3D)
+    # -------------------------------
     st.subheader("Stimulation Effectiveness")
+    
     fig_stim = px.scatter_3d(df,
                              x='Proppant per foot (lbs)',
                              y='Water per foot (bbls)',
@@ -148,12 +172,15 @@ if page == "Reservoir Engineering Dashboard":
                              color='Additive per foot (bbls)',
                              size='Gross Perforated Interval (ft)',
                              title="Effect of Stimulation Parameters on Production",
-                             labels={'Proppant per foot (lbs)':'Proppant (lbs/ft)',
-                                     'Water per foot (bbls)':'Water (bbls/ft)',
-                                     'Production (MMcfge)':'Production (MMcfge)',
-                                     'Additive per foot (bbls)':'Additive (bbls/ft)',
-                                     'Gross Perforated Interval (ft)':'Perforated Interval (ft)'}
-                            )
+                             labels={
+                                 'Proppant per foot (lbs)': 'Proppant (lbs/ft)',
+                                 'Water per foot (bbls)': 'Water (bbls/ft)',
+                                 'Production (MMcfge)': 'Production (MMcfge)',
+                                 'Additive per foot (bbls)': 'Additive (bbls/ft)',
+                                 'Gross Perforated Interval (ft)': 'Perforated Interval (ft)'
+                             },
+                             hover_data=['ID', 'Depth (feet)', 'Porosity (decimal)'])
+    
     st.plotly_chart(fig_stim, use_container_width=True)
 
 # ---------------------------
@@ -187,4 +214,5 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production  # Save for economic analysis
+
 
