@@ -18,15 +18,20 @@ def load_data():
 
 @st.cache_resource
 def train_model(df):
-    X = df.drop(columns=['ID', 'Production (MMcfge)'])
+    # Define features and target
+    feature_cols = df.drop(columns=['ID', 'Production (MMcfge)']).columns.tolist()
+    X = df[feature_cols]
     y = df['Production (MMcfge)']
     
+    # Split data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
+    # Scale features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
+    # Train model
     gbr = GradientBoostingRegressor(
         loss='absolute_error',
         learning_rate=0.1,
@@ -37,12 +42,12 @@ def train_model(df):
     )
     gbr.fit(X_train_scaled, y_train)
     
+    # Predictions on test set
     pred_y = gbr.predict(X_test_scaled)
     
-    return gbr, scaler, X_train.columns, X_test, y_test, pred_y
+    return gbr, scaler, feature_cols, X_test, y_test, pred_y
 
-
-# Load Data & Train Model
+# Load data and train model
 df = load_data()
 model, scaler, feature_cols, X_test, y_test, pred_y = train_model(df)
 
@@ -137,24 +142,17 @@ elif page == "Reservoir Prediction":
     st.title("Predict New Well Production & Economics")
     
     st.subheader("Input Parameters")
-    input_features = [
-        'Depth (feet)', 'Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
-        'Porosity (decimal)', 'Resistivity (Ohm-m)', 'Gross Perforated Interval (ft)',
-        'Proppant per foot (lbs)', 'Water per foot (bbls)', 'Additive per foot (bbls)',
-        'Azimuth (degrees)', 'Acre Spacing (acres)', 'Surface Latitude', 'Surface Longitude'
-    ]
-
-    df[input_features] = df[input_features].fillna(df[input_features].mean())
+    
+    # Fill NaNs in features
+    df[feature_cols] = df[feature_cols].fillna(df[feature_cols].mean())
 
     input_data = {}
-    for col in input_features:
+    for col in feature_cols:
         min_val = float(df[col].min())
         max_val = float(df[col].max())
         mean_val = float(df[col].mean())
-
         if min_val == max_val:
             max_val += 1.0
-
         input_data[col] = st.slider(
             col,
             min_value=min_val,
@@ -174,10 +172,14 @@ elif page == "Reservoir Prediction":
     gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
 
     if st.button("Predict Production"):
-        input_df = pd.DataFrame([input_data])
+        # Ensure input_df has same columns/order as training
+        input_df = pd.DataFrame([input_data], columns=feature_cols)
+
+        # Scale and predict
         input_scaled = scaler.transform(input_df)
         pred_production = model.predict(input_scaled)[0]
 
+        # Calculate economics
         capex = (
             base_drilling_cost * input_df['Depth (feet)'].iloc[0] +
             base_completion_cost * input_df['Gross Perforated Interval (ft)'].iloc[0] +
