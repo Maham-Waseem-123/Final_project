@@ -119,13 +119,6 @@ if page == "Economic Analysis":
 # ---------------------------
 # PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
-# ---------------------------
-# PAGE 2: Reservoir Engineering Dashboard
-# ---------------------------
-
-# ---------------------------
-# PAGE 2: Reservoir Engineering Dashboard
-# ---------------------------
 
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
@@ -134,7 +127,25 @@ elif page == "Reservoir Engineering Dashboard":
     hover_cols = ["Well_ID", "Latitude", "Longitude"]
 
     # ------------------------------------------------------
-    # 1️⃣ EUR vs Porosity (bar chart, two columns only)
+    # 0️⃣ EUR vs Depth (line chart)
+    # ------------------------------------------------------
+    st.subheader("EUR (Production) vs Depth")
+
+    fig_depth = px.line(
+        df.sort_values("Depth (feet)"),
+        x="Depth (feet)",
+        y="Production (MMcfge)",
+        markers=True,
+        hover_data=["Well_ID", "Latitude", "Longitude", "Depth (feet)", "Production (MMcfge)"],
+        labels={
+            "Depth (feet)": "Depth (feet)",
+            "Production (MMcfge)": "EUR (MMcfge)"
+        },
+    )
+    st.plotly_chart(fig_depth, use_container_width=True)
+
+    # ------------------------------------------------------
+    # 1️⃣ EUR vs Porosity (bar chart)
     # ------------------------------------------------------
     st.subheader("EUR vs Porosity (decimal)")
 
@@ -207,7 +218,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig_prop, use_container_width=True)
 
     # ------------------------------------------------------
-    # 6️⃣ EUR vs Gross Perforated Interval (ft) (line chart)
+    # 6️⃣ EUR vs Gross Perforated Interval (ft)
     # ------------------------------------------------------
     st.subheader("EUR vs Gross Perforated Interval (ft)")
 
@@ -220,22 +231,6 @@ elif page == "Reservoir Engineering Dashboard":
         labels={"Production (MMcfge)": "EUR (MMcfge)"},
     )
     st.plotly_chart(fig_gpi, use_container_width=True)
-
-st.subheader("EUR (Production) vs Depth")
-
-fig_depth = px.line(
-    df.sort_values("Depth (feet)"),
-    x="Depth (feet)",
-    y="Production (MMcfge)",
-    markers=True,
-    hover_data=["Well_ID", "Latitude", "Longitude", "Depth (feet)", "Production (MMcfge)"],
-    labels={
-        "Depth (feet)": "Depth (feet)",
-        "Production (MMcfge)": "EUR (MMcfge)"
-    },
-)
-
-st.plotly_chart(fig_depth, use_container_width=True)
 
 
 # ---------------------------
@@ -268,6 +263,7 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
 
 
