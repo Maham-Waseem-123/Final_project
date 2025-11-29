@@ -63,52 +63,92 @@ page = st.sidebar.radio("Select a Page:", [
 # PAGE 1: Spatial Visualization
 # ---------------------------
 if page == "Spatial Visualization":
-    st.title("Production Zones Field Layout")
-    st.subheader("Schematic Field Map of Wells")
+    st.title("2D Reservoir Property Map")
+    st.subheader("Interpolated Production Zones")
 
-    # Categorize production
-    def categorize_production(production):
-        if production > 1500:
+    from pykrige.ok import OrdinaryKriging
+    import numpy as np
+    import plotly.express as px
+
+    # Define production zones thresholds
+    def production_zone_label(value):
+        if value > 1500:
             return "Productive"
-        elif production >= 1300:
+        elif value >= 1300:
             return "Moderate"
         else:
             return "Unproductive"
 
-    df['Production Zone'] = df['Production (MMcfge)'].apply(categorize_production)
+    # Extract X/Y and production
+    x = df['Surface Longitude'].values
+    y = df['Surface Latitude'].values
+    z = df['Production (MMcfge)'].values
 
-    # Color mapping
+    # Create a grid for interpolation
+    grid_x = np.linspace(x.min(), x.max(), 100)  # 100x100 grid
+    grid_y = np.linspace(y.min(), y.max(), 100)
+    grid_xx, grid_yy = np.meshgrid(grid_x, grid_y)
+
+    # Perform Kriging interpolation
+    OK = OrdinaryKriging(
+        x, y, z,
+        variogram_model='spherical',
+        verbose=False,
+        enable_plotting=False
+    )
+    grid_z, ss = OK.execute('grid', grid_x, grid_y)
+
+    # Convert interpolated values to production zones
+    zone_grid = np.vectorize(production_zone_label)(grid_z)
+
+    # Map colors for zones
     zone_colors = {
         "Productive": "green",
         "Moderate": "yellow",
         "Unproductive": "red"
     }
 
-    import plotly.graph_objects as go
+    # Flatten the grid for plotting
+    flat_x = grid_xx.flatten()
+    flat_y = grid_yy.flatten()
+    flat_zone = zone_grid.flatten()
 
-    fig = go.Figure()
+    # Create a DataFrame for Plotly
+    interp_df = pd.DataFrame({
+        "X": flat_x,
+        "Y": flat_y,
+        "Zone": flat_zone
+    })
 
-    for zone in df['Production Zone'].unique():
-        zone_df = df[df['Production Zone'] == zone]
-        fig.add_trace(go.Scatter(
-            x=zone_df['Surface Longitude'],
-            y=zone_df['Surface Latitude'],
-            mode='text',
-            text=['🛢️']*len(zone_df),  # well emoji
-            textfont=dict(size=12),
-            marker=dict(color=zone_colors[zone]),
-            hovertext=zone_df.apply(lambda r: f"ID: {r['ID']}<br>Production: {r['Production (MMcfge)']}", axis=1),
-            hoverinfo="text",
-            name=zone
-        ))
+    # Plot 2D schematic map
+    fig = px.scatter(
+        interp_df,
+        x="X",
+        y="Y",
+        color="Zone",
+        color_discrete_map=zone_colors,
+        opacity=0.7,
+        title="2D Interpolated Production Zones",
+        hover_data=[]
+    )
+
+    # Add actual wells as well emojis
+    productive_colors = df['Production (MMcfge)'].apply(production_zone_label).map(zone_colors)
+    fig.add_scatter(
+        x=df['Surface Longitude'],
+        y=df['Surface Latitude'],
+        mode='text',
+        text=['🛢️']*len(df),
+        textfont=dict(size=12),
+        marker=dict(color=productive_colors),
+        name="Wells"
+    )
 
     fig.update_layout(
         xaxis_title="X Field Coordinate (Longitude)",
         yaxis_title="Y Field Coordinate (Latitude)",
         plot_bgcolor="lightgrey",
-        height=600,
-        legend_title="Production Zones",
-        margin=dict(l=20, r=20, t=40, b=20)
+        height=600
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -225,6 +265,7 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
 
 
