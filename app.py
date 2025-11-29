@@ -14,7 +14,7 @@ from sklearn.cluster import KMeans
 @st.cache_data
 def load_and_train():
     # Load dataset from GitHub raw link
-    csv_url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/finaldata.csv"
+    csv_url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
     combined_data = pd.read_csv(csv_url)
 
     df = combined_data.copy()
@@ -216,3 +216,4 @@ elif page == "Reservoir Prediction":
     st.write(f"**Predicted OPEX:** ${predicted_opex:,.2f}")
     st.write(f"**Predicted Revenue:** ${predicted_revenue:,.2f}")
     st.write(f"**Predicted Profit:** ${predicted_profit:,.2f}")
+
