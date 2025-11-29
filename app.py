@@ -6,7 +6,6 @@ import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from scipy.spatial import cKDTree
 from pykrige.ok import OrdinaryKriging
 
 # ------------------------------------------
@@ -20,7 +19,7 @@ st.markdown("Upload your well dataset, explore reservoir properties interactivel
 # 2. Upload Data (once)
 # ------------------------------------------
 if 'df' not in st.session_state:
-    uploaded_file = st.file_uploader("Upload CSV with well data", type=["csv"])
+    uploaded_file = st.file_uploader("Upload CSV with well data", type=["csv"], key="upload_csv")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         st.session_state.df = df
@@ -65,21 +64,27 @@ if 'df' not in st.session_state:
 # ------------------------------------------
 if 'df' in st.session_state:
     df = st.session_state.df
-    st.dataframe(df.head())
+    st.dataframe(df.head(), key="df_head")
 
+    # Property selection
     property_list = [col for col in df.columns if df[col].dtype in [np.float64, np.int64]]
-    prop = st.selectbox("Select Property to Map:", property_list)
+    prop = st.selectbox("Select Property to Map:", property_list, key="select_property")
 
-    method = st.radio("Choose Interpolation Method:", ("IDW", "Kriging"))
-
+    # Interpolation method (only Kriging)
+    st.info("Using Ordinary Kriging for Interpolation")
+    
     # Add new well for "what-if"
     st.subheader("Add New Well (What-If Scenario)")
     new_well = {}
     col1, col2 = st.columns(2)
     for feature in ['Surface Latitude', 'Surface Longitude'] + property_list:
-        new_well[feature] = st.number_input(f"{feature}", value=float(df[feature].mean()))
+        new_well[feature] = st.number_input(
+            f"{feature}", 
+            value=float(df[feature].mean()), 
+            key=f"new_well_{feature}"
+        )
 
-    if st.button("Add Well"):
+    if st.button("Add Well", key="add_well_button"):
         df_new = df.append(new_well, ignore_index=True)
         st.session_state.df = df_new
         st.success("New well added! Interpolation will include this well now.")
@@ -90,30 +95,15 @@ if 'df' in st.session_state:
     y_min, y_max = df['Surface Latitude'].min(), df['Surface Latitude'].max()
     grid_x = np.linspace(x_min, x_max, 100)
     grid_y = np.linspace(y_min, y_max, 100)
-    grid_X, grid_Y = np.meshgrid(grid_x, grid_y)
 
-    interpolated_values = None
+    # Ordinary Kriging
+    OK = OrdinaryKriging(
+        df['Surface Longitude'], df['Surface Latitude'], df[prop],
+        variogram_model='spherical', verbose=False, enable_plotting=False
+    )
+    interpolated_values, _ = OK.execute('grid', grid_x, grid_y)
 
-    if method == "IDW":
-        st.info("Using Inverse Distance Weighting (IDW)")
-        coords = np.column_stack((df['Surface Longitude'], df['Surface Latitude']))
-        tree = cKDTree(coords)
-        interp_vals = []
-        for xi, yi in zip(grid_X.ravel(), grid_Y.ravel()):
-            dists, idxs = tree.query([xi, yi], k=5)
-            weights = 1 / (dists + 1e-12)
-            value = np.sum(weights * df[prop].values[idxs]) / np.sum(weights)
-            interp_vals.append(value)
-        interpolated_values = np.array(interp_vals).reshape(grid_X.shape)
-
-    elif method == "Kriging":
-        st.info("Using Ordinary Kriging")
-        OK = OrdinaryKriging(
-            df['Surface Longitude'], df['Surface Latitude'], df[prop],
-            variogram_model='spherical', verbose=False, enable_plotting=False
-        )
-        interpolated_values, _ = OK.execute('grid', grid_x, grid_y)
-
+    # Plot property map
     fig = px.imshow(
         interpolated_values,
         origin='lower',
@@ -122,8 +112,8 @@ if 'df' in st.session_state:
         labels={'x': 'Longitude', 'y': 'Latitude', 'color': prop},
         title=f"{prop} Distribution Map"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="property_map")
 
     # Show Production Table
     st.subheader("Production & Prediction")
-    st.dataframe(df[['ID', 'Production (MMcfge)', 'Predicted Production']])
+    st.dataframe(df[['ID', 'Production (MMcfge)', 'Predicted Production']], key="production_table")
