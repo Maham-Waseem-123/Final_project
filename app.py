@@ -62,55 +62,36 @@ page = st.sidebar.radio("Select a Page:", [
 # ---------------------------
 # PAGE 1: Spatial Visualization
 # ---------------------------
+# ---------------------------
+# PAGE 1: Spatial Visualization
+# ---------------------------
 if page == "Spatial Visualization":
     st.title("Spatial Visualization")
-    st.subheader("Production Zones")
+    st.subheader("Productive Wells Scatter Plot")
 
-    # Define production zones based on thresholds
+    # Define production zones
     def categorize_production(production):
         if production > 1500:   # high production
-            return "🛢️ Productive"
+            return "Productive"
         elif production >= 1300: # moderate production
-            return "🛢️ Moderate"
+            return "Moderate"
         else:                  # low production
-            return "🛢️ Unproductive"
+            return "Unproductive"
 
     df['Production Zone'] = df['Production (MMcfge)'].apply(categorize_production)
 
-    # Map visualization with grey background
-    import plotly.graph_objects as go
+    # Filter only productive wells
+    productive_df = df[df['Production Zone'] == "Productive"]
 
-    fig = go.Figure()
-
-    # Add wells as scatter points with emojis
-    zone_colors = {
-        "🛢️ Productive": "green",
-        "🛢️ Moderate": "yellow",
-        "🛢️ Unproductive": "red"
-    }
-
-    for zone in df['Production Zone'].unique():
-        zone_df = df[df['Production Zone'] == zone]
-        fig.add_trace(go.Scattergeo(
-            lon = zone_df['Surface Longitude'],
-            lat = zone_df['Surface Latitude'],
-            text = zone_df['Production Zone'],
-            mode = 'text',
-            textfont=dict(size=20),
-            marker=dict(color=zone_colors[zone])
-        ))
-
-    fig.update_layout(
-        geo=dict(
-            showland=True,
-            landcolor="lightgrey",
-            showcountries=True,
-            countrycolor="grey",
-            showocean=True,
-            oceancolor="lightgrey",
-        ),
-        margin={"r":0,"t":0,"l":0,"b":0},
-        height=600
+    # Scatter plot: Depth vs Production
+    fig = px.scatter(
+        productive_df,
+        x="Depth (feet)",
+        y="Production (MMcfge)",
+        size="Gross Perforated Interval (ft)",  # optional: size based on interval
+        color="Porosity (decimal)",            # optional: color by porosity
+        hover_data=['ID', 'Proppant per foot (lbs)', 'Water per foot (bbls)'],
+        title="Productive Wells Scatter Plot"
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -227,6 +208,7 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
 
 
