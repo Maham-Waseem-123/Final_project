@@ -85,7 +85,7 @@ if page == "Reservoir Engineering Dashboard":
         "Proppant per foot (lbs)"
     ]
 
-    def make_binned_lineplot(xcol, title, bins=10):
+    def make_binned_lineplot(xcol, bins=10):
         df['bin'] = pd.cut(df[xcol], bins=bins)
         binned_df = df.groupby('bin', as_index=False)['Production (MMcfge)'].mean()
         binned_df['bin_center'] = binned_df['bin'].apply(lambda x: x.mid)
@@ -106,14 +106,13 @@ if page == "Reservoir Engineering Dashboard":
         )
         fig.update_yaxes(title_text="Production (MMcfge)")
 
-        st.subheader(title)
+        st.subheader(f"Production vs {xcol}")
         st.plotly_chart(fig, use_container_width=True)
 
     for col in features_to_plot:
-        make_binned_lineplot(col, f"Production vs {col} (binned average)")
+        make_binned_lineplot(col)
 
-    st.subheader("Depth (feet) vs Production (MMcfge)")
-
+    st.subheader("Depth (feet) vs Production")
     df['Depth_bin'] = pd.cut(df["Depth (feet)"], bins=10)
     binned_depth_df = df.groupby('Depth_bin', as_index=False)['Production (MMcfge)'].mean()
     binned_depth_df['bin_center'] = binned_depth_df['Depth_bin'].apply(lambda x: x.mid)
@@ -133,6 +132,7 @@ if page == "Reservoir Engineering Dashboard":
     )
     fig.update_yaxes(title_text="Production (MMcfge)")
     st.plotly_chart(fig, use_container_width=True)
+
 
 # ============================================
 # PAGE 2: RESERVOIR PREDICTION
@@ -217,4 +217,5 @@ elif page == "Economic Analysis":
         st.write(f"OPEX: ${new_opex:,.2f}")
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
+
 
