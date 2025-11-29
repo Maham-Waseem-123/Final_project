@@ -119,7 +119,6 @@ if page == "Economic Analysis":
 # ---------------------------
 # PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
-
 # ---------------------------
 # PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
@@ -142,8 +141,8 @@ elif page == "Reservoir Engineering Dashboard":
         labels={'Depth (feet)': 'Depth (feet)', 'Production (MMcfge)': 'EUR (MMcfge)'},
         hover_data={
             "ID": True,
-            "Latitude": True,
-            "Longitude": True,
+            "Surface Latitude": True,
+            "Surface Longitude": True,
             "Depth (feet)": True,
             "Production (MMcfge)": True
         }
@@ -176,8 +175,8 @@ elif page == "Reservoir Engineering Dashboard":
             labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
             hover_data={
                 "ID": True,
-                "Latitude": True,
-                "Longitude": True,
+                "Surface Latitude": True,
+                "Surface Longitude": True,
                 feature: True,
                 "Production (MMcfge)": True
             }
@@ -209,13 +208,14 @@ elif page == "Reservoir Engineering Dashboard":
             labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
             hover_data={
                 "ID": True,
-                "Latitude": True,
-                "Longitude": True,
+                "Surface Latitude": True,
+                "Surface Longitude": True,
                 feature: True,
                 "Production (MMcfge)": True
             }
         )
         st.plotly_chart(fig, use_container_width=True)
+
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -247,5 +247,6 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
 
