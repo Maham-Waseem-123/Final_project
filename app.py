@@ -163,7 +163,7 @@ elif page == "Reservoir Engineering Dashboard":
         df.sort_values("Additive per foot (bbls)"),
         x="Additive per foot (bbls)",
         y="Production (MMcfge)",
-        markers=True,
+        markers=False,
         hover_data=hover_cols + ["Additive per foot (bbls)"],
         labels={"Production (MMcfge)": "EUR (MMcfge)"},
     )
@@ -177,7 +177,7 @@ elif page == "Reservoir Engineering Dashboard":
         df.sort_values("Water per foot (bbls)"),
         x="Water per foot (bbls)",
         y="Production (MMcfge)",
-        markers=True,
+        markers=False,
         hover_data=hover_cols + ["Water per foot (bbls)"],
         labels={"Production (MMcfge)": "EUR (MMcfge)"},
     )
@@ -191,7 +191,7 @@ elif page == "Reservoir Engineering Dashboard":
         df.sort_values("Proppant per foot (lbs)"),
         x="Proppant per foot (lbs)",
         y="Production (MMcfge)",
-        markers=True,
+        markers=False,
         hover_data=hover_cols + ["Proppant per foot (lbs)"],
         labels={"Production (MMcfge)": "EUR (MMcfge)"},
     )
@@ -205,7 +205,7 @@ elif page == "Reservoir Engineering Dashboard":
         df.sort_values("Gross Perforated Interval (ft)"),
         x="Gross Perforated Interval (ft)",
         y="Production (MMcfge)",
-        markers=True,
+        markers=False,
         hover_data=hover_cols + ["Gross Perforated Interval (ft)"],
         labels={"Production (MMcfge)": "EUR (MMcfge)"},
     )
@@ -219,7 +219,7 @@ elif page == "Reservoir Engineering Dashboard":
         df.sort_values("Depth (feet)"),
         x="Depth (feet)",
         y="Production (MMcfge)",
-        markers=True,
+        markers=False,
         hover_data=[
             "ID", "Surface Latitude", "Surface Longitude",
             "Depth (feet)", "Production (MMcfge)"
@@ -263,6 +263,7 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
 
 
