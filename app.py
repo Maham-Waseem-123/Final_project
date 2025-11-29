@@ -63,51 +63,55 @@ page = st.sidebar.radio("Select a Page:", [
 # PAGE 1: Spatial Visualization
 # ---------------------------
 if page == "Spatial Visualization":
-    st.title("Spatial Visualization")
-    st.subheader("Production Zones Map")
+    st.title("Production Zones Field Layout")
+    st.subheader("Schematic Field Map of Wells")
 
-    # Define production zones based on Production thresholds
+    # Categorize production
     def categorize_production(production):
-        if production > 1500:      # Productive
+        if production > 1500:
             return "Productive"
-        elif production >= 1300:    # Moderate
+        elif production >= 1300:
             return "Moderate"
-        else:                       # Unproductive
+        else:
             return "Unproductive"
 
     df['Production Zone'] = df['Production (MMcfge)'].apply(categorize_production)
 
-    # Set color mapping for clusters
+    # Color mapping
     zone_colors = {
         "Productive": "green",
         "Moderate": "yellow",
         "Unproductive": "red"
     }
 
-    import plotly.express as px
+    import plotly.graph_objects as go
 
-    # Scatter mapbox plot
-    fig = px.scatter_mapbox(
-        df,
-        lat="Surface Latitude",
-        lon="Surface Longitude",
-        color="Production Zone",
-        color_discrete_map=zone_colors,
-        size="Production (MMcfge)",       # scale size by production
-        size_max=20,                      # max size of markers
-        hover_data=["ID", "Production (MMcfge)", "Depth (feet)", "Porosity (decimal)"],
-        zoom=5,
-        height=600
-    )
+    fig = go.Figure()
 
-    # Grey background map
+    for zone in df['Production Zone'].unique():
+        zone_df = df[df['Production Zone'] == zone]
+        fig.add_trace(go.Scatter(
+            x=zone_df['Surface Longitude'],
+            y=zone_df['Surface Latitude'],
+            mode='text',
+            text=['🛢️']*len(zone_df),  # well emoji
+            textfont=dict(size=12),
+            marker=dict(color=zone_colors[zone]),
+            hovertext=zone_df.apply(lambda r: f"ID: {r['ID']}<br>Production: {r['Production (MMcfge)']}", axis=1),
+            hoverinfo="text",
+            name=zone
+        ))
+
     fig.update_layout(
-        mapbox_style="carto-positron",     # clean grey-style map
-        margin={"r":0,"t":0,"l":0,"b":0}
+        xaxis_title="X Field Coordinate (Longitude)",
+        yaxis_title="Y Field Coordinate (Latitude)",
+        plot_bgcolor="lightgrey",
+        height=600,
+        legend_title="Production Zones",
+        margin=dict(l=20, r=20, t=40, b=20)
     )
 
     st.plotly_chart(fig, use_container_width=True)
-
 
 
 # ---------------------------
@@ -221,6 +225,7 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
 
 
