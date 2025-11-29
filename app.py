@@ -125,41 +125,78 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
-# PAGE 3: Reservoir Prediction
+# PAGE: Reservoir Prediction
 # ---------------------------
 elif page == "Reservoir Prediction":
     st.title("Predict New Well Production & Economics")
     
     st.subheader("Input Parameters")
+    input_features = [
+        'Depth (feet)',
+        'Thickness (feet)',
+        'Normalized Gamma Ray (API)',
+        'Density (g/cm3)',
+        'Porosity (decimal)',
+        'Resistivity (Ohm-m)',
+        'Gross Perforated Interval (ft)',
+        'Proppant per foot (lbs)',
+        'Water per foot (bbls)',
+        'Additive per foot (bbls)',
+        'Azimuth (degrees)',
+        'Acre Spacing (acres)',
+        'Surface Latitude',
+        'Surface Longitude'
+    ]
+
     input_data = {}
-    for col in feature_cols:
-        input_data[col] = st.number_input(col, value=float(df[col].mean()))
-    
-    input_df = pd.DataFrame([input_data])
-    input_scaled = scaler.transform(input_df)
-    pred_production = model.predict(input_scaled)[0]
-    st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
-    
-    capex = (
-        base_drilling_cost * input_df['Depth (feet)'].iloc[0] +
-        base_completion_cost * input_df['Gross Perforated Interval (ft)'].iloc[0] +
-        proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
-        water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
-        additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0]
-    )
-    
-    opex = (
-        base_maintenance_cost + base_pump_cost +
-        proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
-        water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
-        additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0]
-    )
-    
-    revenue = pred_production * gas_price
-    profit = revenue - capex - opex
-    
-    st.subheader("Economic Estimate")
-    st.write(f"CAPEX: ${capex:,.2f}")
-    st.write(f"OPEX: ${opex:,.2f}")
-    st.write(f"Revenue: ${revenue:,.2f}")
-    st.write(f"Profit: ${profit:,.2f}")
+    for col in input_features:
+        # Use min, max, mean from dataset for slider ranges
+        min_val = float(df[col].min())
+        max_val = float(df[col].max())
+        mean_val = float(df[col].mean())
+        input_data[col] = st.slider(col, min_val, max_val, mean_val)
+
+    st.subheader("Cost Parameters")
+    base_drilling_cost = st.slider("Base Drilling Cost ($/ft)", 500, 5000, 1000)
+    base_completion_cost = st.slider("Base Completion Cost ($/ft)", 200, 2000, 500)
+    proppant_cost_per_lb = st.slider("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
+    water_cost_per_bbl = st.slider("Water Cost ($/bbl)", 0.5, 5.0, 1.5)
+    additive_cost_per_bbl = st.slider("Additive Cost ($/bbl)", 0.5, 5.0, 2.0)
+    base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
+    base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
+    gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
+
+    # Predict button
+    if st.button("Predict Production"):
+        # Prepare input dataframe
+        input_df = pd.DataFrame([input_data])
+        input_scaled = scaler.transform(input_df)
+        pred_production = model.predict(input_scaled)[0]
+
+        # CAPEX calculation
+        capex = (
+            base_drilling_cost * input_df['Depth (feet)'].iloc[0] +
+            base_completion_cost * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+            proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+            water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+            additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0]
+        )
+
+        # OPEX calculation
+        opex = (
+            base_maintenance_cost + base_pump_cost +
+            proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+            water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+            additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0]
+        )
+
+        # Revenue & Profit
+        revenue = pred_production * gas_price
+        profit = revenue - capex - opex
+
+        # Display results
+        st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
+        st.write(f"CAPEX: ${capex:,.2f}")
+        st.write(f"OPEX: ${opex:,.2f}")
+        st.write(f"Revenue: ${revenue:,.2f}")
+        st.write(f"Profit: ${profit:,.2f}")
