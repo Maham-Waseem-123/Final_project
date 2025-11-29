@@ -64,83 +64,20 @@ st.set_page_config(page_title="Reservoir Engineering App", layout="wide")
 
 st.sidebar.title("Pages")
 page = st.sidebar.radio("Select a Page:", [
-    "Economic Analysis",
     "Reservoir Engineering Dashboard",
-    "Reservoir Prediction"
+    "Reservoir Prediction",
+    "Economic Analysis"
 ])
 
 # ============================================
-# PAGE 1: ECONOMIC ANALYSIS
+# PAGE 1: RESERVOIR ENGINEERING DASHBOARD
 # ============================================
 
-if page == "Economic Analysis":
-    
-    st.title("Economic Analysis")
-
-    st.subheader("Adjust Cost Parameters")
-    base_drilling_cost = st.slider("Base Drilling Cost ($/ft)", 500, 5000, 1000)
-    base_completion_cost = st.slider("Base Completion Cost ($/ft)", 200, 2000, 500)
-    proppant_cost_per_lb = st.slider("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
-    water_cost_per_bbl = st.slider("Water Cost ($/bbl)", 0.5, 5.0, 1.5)
-    additive_cost_per_bbl = st.slider("Additive Cost ($/bbl)", 0.5, 5.0, 2.0)
-    base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
-    base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
-    gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
-
-    # Calculate economic metrics for existing wells
-    df["CAPEX"] = (
-        base_drilling_cost * df["Depth (feet)"] +
-        base_completion_cost * df["Gross Perforated Interval (ft)"] +
-        proppant_cost_per_lb * df["Proppant per foot (lbs)"] * df["Gross Perforated Interval (ft)"] +
-        water_cost_per_bbl * df["Water per foot (bbls)"] * df["Gross Perforated Interval (ft)"] +
-        additive_cost_per_bbl * df["Additive per foot (bbls)"] * df["Gross Perforated Interval (ft)"]
-    )
-    
-    df["OPEX"] = (
-        base_maintenance_cost +
-        base_pump_cost +
-        proppant_cost_per_lb * df["Proppant per foot (lbs)"] * df["Gross Perforated Interval (ft)"] +
-        water_cost_per_bbl * df["Water per foot (bbls)"] * df["Gross Perforated Interval (ft)"] +
-        additive_cost_per_bbl * df["Additive per foot (bbls)"] * df["Gross Perforated Interval (ft)"]
-    )
-    
-    df["Revenue"] = df["Production (MMcfge)"] * gas_price
-    df["Profit"] = df["Revenue"] - df["CAPEX"] - df["OPEX"]
-    
-    st.subheader("Economic Metrics of Existing Wells")
-    st.dataframe(df[['ID', 'CAPEX', 'OPEX', 'Revenue', 'Profit']])
-    
-    # Show predicted well economics if available
-    if "predicted_production" in st.session_state:
-        st.subheader("Economic Metrics for Predicted Well")
-        P = st.session_state.predicted_production
-        new_capex = (
-            base_drilling_cost * df["Depth (feet)"].mean() +
-            base_completion_cost * df["Gross Perforated Interval (ft)"].mean() +
-            proppant_cost_per_lb * df["Proppant per foot (lbs)"].mean() * df["Gross Perforated Interval (ft)"].mean() +
-            water_cost_per_bbl * df["Water per foot (bbls)"].mean() * df["Gross Perforated Interval (ft)"].mean() +
-            additive_cost_per_bbl * df["Additive per foot (bbls)"].mean() * df["Gross Perforated Interval (ft)"].mean()
-        )
-        new_opex = base_maintenance_cost + base_pump_cost
-        new_revenue = P * gas_price
-        new_profit = new_revenue - new_capex - new_opex
-        
-        st.write(f"Predicted Production: {P:.2f} MMcfge")
-        st.write(f"CAPEX: ${new_capex:,.2f}")
-        st.write(f"OPEX: ${new_opex:,.2f}")
-        st.write(f"Revenue: ${new_revenue:,.2f}")
-        st.write(f"Profit: ${new_profit:,.2f}")
-
-# ============================================
-# PAGE 2: RESERVOIR ENGINEERING DASHBOARD
-# ============================================
-
-elif page == "Reservoir Engineering Dashboard":
+if page == "Reservoir Engineering Dashboard":
     
     st.title("Reservoir Engineering Dashboard")
     hover_cols = ["ID"]
 
-    # Features to plot (excluding GPI and Resistivity)
     features_to_plot = [
         "Porosity (decimal)", 
         "Additive per foot (bbls)",
@@ -148,22 +85,13 @@ elif page == "Reservoir Engineering Dashboard":
         "Proppant per foot (lbs)"
     ]
 
-    # ------------- FIXED BINNED LINE PLOT FUNCTION -------------
     def make_binned_lineplot(xcol, title, bins=10):
-        # Bin the feature
         df['bin'] = pd.cut(df[xcol], bins=bins)
-
-        # Calculate binned production averages
         binned_df = df.groupby('bin', as_index=False)['Production (MMcfge)'].mean()
         binned_df['bin_center'] = binned_df['bin'].apply(lambda x: x.mid)
-
-        # Remove bins with no data
         binned_df = binned_df.dropna(subset=['Production (MMcfge)'])
-
-        # Sort so the line plot starts at the left of x-axis
         binned_df = binned_df.sort_values("bin_center")
 
-        # Plot
         fig = px.line(
             binned_df,
             x='bin_center',
@@ -172,7 +100,6 @@ elif page == "Reservoir Engineering Dashboard":
             markers=True
         )
 
-        # Adjust x-axis to actual data range
         fig.update_xaxes(
             range=[binned_df['bin_center'].min(), binned_df['bin_center'].max()],
             dtick=(binned_df['bin_center'].max() - binned_df['bin_center'].min())/bins
@@ -182,19 +109,14 @@ elif page == "Reservoir Engineering Dashboard":
         st.subheader(title)
         st.plotly_chart(fig, use_container_width=True)
 
-    # -------------------------------------------------------------
-    # Plot all features
     for col in features_to_plot:
         make_binned_lineplot(col, f"Production vs {col} (binned average)")
 
-    # ------------- DEPTH VS PRODUCTION (FIXED) -------------------
     st.subheader("Depth (feet) vs Production (MMcfge) (binned average)")
 
     df['Depth_bin'] = pd.cut(df["Depth (feet)"], bins=10)
     binned_depth_df = df.groupby('Depth_bin', as_index=False)['Production (MMcfge)'].mean()
     binned_depth_df['bin_center'] = binned_depth_df['Depth_bin'].apply(lambda x: x.mid)
-
-    # Remove empty bins
     binned_depth_df = binned_depth_df.dropna(subset=['Production (MMcfge)'])
     binned_depth_df = binned_depth_df.sort_values("bin_center")
 
@@ -205,19 +127,15 @@ elif page == "Reservoir Engineering Dashboard":
         labels={'bin_center': 'Depth (feet)', 'Production (MMcfge)': 'Production (MMcfge)'},
         markers=True
     )
-
     fig.update_xaxes(
         range=[binned_depth_df['bin_center'].min(), binned_depth_df['bin_center'].max()],
         dtick=(binned_depth_df['bin_center'].max() - binned_depth_df['bin_center'].min())/10
     )
     fig.update_yaxes(title_text="Production (MMcfge)")
-
     st.plotly_chart(fig, use_container_width=True)
 
-
-
 # ============================================
-# PAGE 3: RESERVOIR PREDICTION
+# PAGE 2: RESERVOIR PREDICTION
 # ============================================
 
 elif page == "Reservoir Prediction":
@@ -240,4 +158,62 @@ elif page == "Reservoir Prediction":
         st.success(f"Predicted Production (MMcfge): {pred:.2f}")
         st.session_state.predicted_production = pred
 
+# ============================================
+# PAGE 3: ECONOMIC ANALYSIS
+# ============================================
 
+elif page == "Economic Analysis":
+    
+    st.title("Economic Analysis")
+
+    st.subheader("Adjust Cost Parameters")
+    base_drilling_cost = st.slider("Base Drilling Cost ($/ft)", 500, 5000, 1000)
+    base_completion_cost = st.slider("Base Completion Cost ($/ft)", 200, 2000, 500)
+    proppant_cost_per_lb = st.slider("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
+    water_cost_per_bbl = st.slider("Water Cost ($/bbl)", 0.5, 5.0, 1.5)
+    additive_cost_per_bbl = st.slider("Additive Cost ($/bbl)", 0.5, 5.0, 2.0)
+    base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
+    base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
+    gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
+
+    df["CAPEX"] = (
+        base_drilling_cost * df["Depth (feet)"] +
+        base_completion_cost * df["Gross Perforated Interval (ft)"] +
+        proppant_cost_per_lb * df["Proppant per foot (lbs)"] * df["Gross Perforated Interval (ft)"] +
+        water_cost_per_bbl * df["Water per foot (bbls)"] * df["Gross Perforated Interval (ft)"] +
+        additive_cost_per_bbl * df["Additive per foot (bbls)"] * df["Gross Perforated Interval (ft)"]
+    )
+    
+    df["OPEX"] = (
+        base_maintenance_cost +
+        base_pump_cost +
+        proppant_cost_per_lb * df["Proppant per foot (lbs)"] * df["Gross Perforated Interval (ft)"] +
+        water_cost_per_bbl * df["Water per foot (bbls)"] * df["Gross Perforated Interval (ft)"] +
+        additive_cost_per_bbl * df["Additive per foot (bbls)"] * df["Gross Perforated Interval (ft)"]
+    )
+    
+    df["Revenue"] = df["Production (MMcfge)"] * gas_price
+    df["Profit"] = df["Revenue"] - df["CAPEX"] - df["OPEX"]
+    
+    st.subheader("Economic Metrics of Existing Wells")
+    st.dataframe(df[['ID', 'CAPEX', 'OPEX', 'Revenue', 'Profit']])
+    
+    if "predicted_production" in st.session_state:
+        st.subheader("Economic Metrics for Predicted Well")
+        P = st.session_state.predicted_production
+        new_capex = (
+            base_drilling_cost * df["Depth (feet)"].mean() +
+            base_completion_cost * df["Gross Perforated Interval (ft)"].mean() +
+            proppant_cost_per_lb * df["Proppant per foot (lbs)"].mean() * df["Gross Perforated Interval (ft)"].mean() +
+            water_cost_per_bbl * df["Water per foot (bbls)"].mean() * df["Gross Perforated Interval (ft)"].mean() +
+            additive_cost_per_bbl * df["Additive per foot (bbls)"].mean() * df["Gross Perforated Interval (ft)"].mean()
+        )
+        new_opex = base_maintenance_cost + base_pump_cost
+        new_revenue = P * gas_price
+        new_profit = new_revenue - new_capex - new_opex
+        
+        st.write(f"Predicted Production: {P:.2f} MMcfge")
+        st.write(f"CAPEX: ${new_capex:,.2f}")
+        st.write(f"OPEX: ${new_opex:,.2f}")
+        st.write(f"Revenue: ${new_revenue:,.2f}")
+        st.write(f"Profit: ${new_profit:,.2f}")
