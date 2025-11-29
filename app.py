@@ -13,7 +13,9 @@ from sklearn.cluster import KMeans
 
 @st.cache_data
 def load_data():
-    combined_data = pd.read_csv("https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/Shale_test.csv")
+    # Load dataset directly from GitHub
+    url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
+    combined_data = pd.read_csv(url)
     return combined_data
 
 @st.cache_resource
@@ -202,3 +204,4 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
