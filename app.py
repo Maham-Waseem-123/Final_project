@@ -120,27 +120,38 @@ if page == "Economic Analysis":
 # PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
 
+# ---------------------------
+# PAGE 2: Reservoir Engineering Dashboard
+# ---------------------------
+
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
 
     # ---------------------------
-    # BAR CHART: EUR vs Depth
+    # LINE CHART: EUR vs Depth
     # ---------------------------
     st.subheader("EUR (Production) vs Depth")
 
-    # Sort for readability
     df_sorted = df.sort_values("Depth (feet)")
 
-    fig_depth = px.bar(
+    fig_depth = px.line(
         df_sorted,
         x="Depth (feet)",
         y="Production (MMcfge)",
+        markers=True,
         labels={'Depth (feet)': 'Depth (feet)', 'Production (MMcfge)': 'EUR (MMcfge)'},
+        hover_data={
+            "ID": True,
+            "Latitude": True,
+            "Longitude": True,
+            "Depth (feet)": True,
+            "Production (MMcfge)": True
+        }
     )
     st.plotly_chart(fig_depth, use_container_width=True)
 
     # ---------------------------
-    # BAR CHART: EUR vs Formation Properties
+    # LINE CHART: EUR vs Formation Properties
     # ---------------------------
     st.subheader("EUR vs Formation Properties")
 
@@ -154,18 +165,27 @@ elif page == "Reservoir Engineering Dashboard":
 
     for feature in formation_features:
         st.write(f"EUR vs {feature}")
+
         df_sorted = df.sort_values(feature)
 
-        fig = px.bar(
+        fig = px.line(
             df_sorted,
             x=feature,
             y="Production (MMcfge)",
+            markers=True,
             labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
+            hover_data={
+                "ID": True,
+                "Latitude": True,
+                "Longitude": True,
+                feature: True,
+                "Production (MMcfge)": True
+            }
         )
         st.plotly_chart(fig, use_container_width=True)
 
     # ---------------------------
-    # BAR CHART: EUR vs Stimulation Parameters
+    # LINE CHART: EUR vs Stimulation Parameters
     # ---------------------------
     st.subheader("EUR vs Stimulation Parameters")
 
@@ -178,16 +198,24 @@ elif page == "Reservoir Engineering Dashboard":
 
     for feature in stim_features:
         st.write(f"EUR vs {feature}")
+
         df_sorted = df.sort_values(feature)
 
-        fig = px.bar(
+        fig = px.line(
             df_sorted,
             x=feature,
             y="Production (MMcfge)",
+            markers=True,
             labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
+            hover_data={
+                "ID": True,
+                "Latitude": True,
+                "Longitude": True,
+                feature: True,
+                "Production (MMcfge)": True
+            }
         )
         st.plotly_chart(fig, use_container_width=True)
-
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -219,4 +247,5 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
