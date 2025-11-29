@@ -79,7 +79,7 @@ if page == "Reservoir Engineering Dashboard":
     hover_cols = ["ID"]
 
     features_to_plot = [
-        "Porosity (decimal)", 
+        "Porosity", 
         "Additive per foot (bbls)",
         "Water per foot (bbls)", 
         "Proppant per foot (lbs)"
@@ -217,5 +217,6 @@ elif page == "Economic Analysis":
         st.write(f"OPEX: ${new_opex:,.2f}")
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
+
 
 
