@@ -18,20 +18,16 @@ def load_data():
 
 @st.cache_resource
 def train_model(df):
-    # Define features and target
     feature_cols = df.drop(columns=['ID', 'Production (MMcfge)']).columns.tolist()
     X = df[feature_cols]
     y = df['Production (MMcfge)']
     
-    # Split data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # Scale features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    # Train model
     gbr = GradientBoostingRegressor(
         loss='absolute_error',
         learning_rate=0.1,
@@ -42,7 +38,6 @@ def train_model(df):
     )
     gbr.fit(X_train_scaled, y_train)
     
-    # Predictions on test set
     pred_y = gbr.predict(X_test_scaled)
     
     return gbr, scaler, feature_cols, X_test, y_test, pred_y
@@ -77,7 +72,6 @@ if page == "Economic Analysis":
     proppant_cost_per_lb = st.slider("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
     water_cost_per_bbl = st.slider("Water Cost ($/bbl)", 0.5, 5.0, 1.5)
     additive_cost_per_bbl = st.slider("Additive Cost ($/bbl)", 0.5, 5.0, 2.0)
-    
     base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
     base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
     gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
@@ -139,13 +133,11 @@ elif page == "Reservoir Engineering Dashboard":
 # ---------------------------
 
 elif page == "Reservoir Prediction":
-    st.title("Predict New Well Production & Economics")
+    st.title("Predict New Well Production")
     
     st.subheader("Input Parameters")
-    
-    # Fill NaNs in features
     df[feature_cols] = df[feature_cols].fillna(df[feature_cols].mean())
-
+    
     input_data = {}
     for col in feature_cols:
         min_val = float(df[col].min())
@@ -161,51 +153,8 @@ elif page == "Reservoir Prediction":
             step=(max_val - min_val) / 1000
         )
 
-    st.subheader("Cost Parameters")
-    base_drilling_cost = st.slider("Base Drilling Cost ($/ft)", 500, 5000, 1000)
-    base_completion_cost = st.slider("Base Completion Cost ($/ft)", 200, 2000, 500)
-    proppant_cost_per_lb = st.slider("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
-    water_cost_per_bbl = st.slider("Water Cost ($/bbl)", 0.5, 5.0, 1.5)
-    additive_cost_per_bbl = st.slider("Additive Cost ($/bbl)", 0.5, 5.0, 2.0)
-    base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
-    base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
-    gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
-
     if st.button("Predict Production"):
-        # Ensure input_df has same columns/order as training
         input_df = pd.DataFrame([input_data], columns=feature_cols)
-
-        # Scale and predict
         input_scaled = scaler.transform(input_df)
         pred_production = model.predict(input_scaled)[0]
-
-        # Calculate economics
-        capex = (
-            base_drilling_cost * input_df['Depth (feet)'].iloc[0] +
-            base_completion_cost * input_df['Gross Perforated Interval (ft)'].iloc[0] +
-            proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] *
-            input_df['Gross Perforated Interval (ft)'].iloc[0] +
-            water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] *
-            input_df['Gross Perforated Interval (ft)'].iloc[0] +
-            additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] *
-            input_df['Gross Perforated Interval (ft)'].iloc[0]
-        )
-
-        opex = (
-            base_maintenance_cost + base_pump_cost +
-            proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] *
-            input_df['Gross Perforated Interval (ft)'].iloc[0] +
-            water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] *
-            input_df['Gross Perforated Interval (ft)'].iloc[0] +
-            additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] *
-            input_df['Gross Perforated Interval (ft)'].iloc[0]
-        )
-
-        revenue = pred_production * gas_price
-        profit = revenue - capex - opex
-
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
-        st.write(f"CAPEX: ${capex:,.2f}")
-        st.write(f"OPEX: ${opex:,.2f}")
-        st.write(f"Revenue: ${revenue:,.2f}")
-        st.write(f"Profit: ${profit:,.2f}")
