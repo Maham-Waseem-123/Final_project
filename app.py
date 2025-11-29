@@ -127,86 +127,73 @@ elif page == "Reservoir Engineering Dashboard":
     # Create concatenated Surface Coordinates
     df['Surface_Coords'] = df['Surface Latitude'].astype(str) + ", " + df['Surface Longitude'].astype(str)
     
-    # -------------------------------
-    # 1. EUR vs Depth (trend line)
-    # -------------------------------
-    st.subheader("EUR (Production) vs Depth")
-    
-    fig_depth = px.scatter(
-        df,
-        x='Depth (feet)',
-        y='Production (MMcfge)',
-        trendline='ols',
-        title="EUR vs Depth",
-        labels={'Depth (feet)': 'Depth (ft)', 'Production (MMcfge)': 'EUR (MMcfge)'},
-        hover_data=['ID','Porosity (decimal)','Thickness (feet)','Density (g/cm3)','Resistivity (Ohm-m)']
-    )
-    st.plotly_chart(fig_depth, use_container_width=True)
-    
-    # -------------------------------
-    # 2. EUR vs Formation Properties (simple column/bar charts)
-    # -------------------------------
-    st.subheader("EUR vs Formation Properties")
-    
-    formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
-                          'Porosity (decimal)', 'Resistivity (Ohm-m)']
-    
-    for feature in formation_features:
-        fig = px.bar(
-            df,
-            x=feature,
-            y='Production (MMcfge)',
-            title=f"EUR vs {feature}",
-            labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
-            hover_data=['ID','Depth (feet)','Surface_Coords']
-        )
-        # Add trend line manually using line chart
-        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
-        trendline = trend[0]*df[feature] + trend[1]
-        fig.add_scatter(x=df[feature], y=trendline, mode='lines', name='Trend Line', line=dict(color='red'))
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # -------------------------------
-    # 3. EUR vs Surface Coordinates (simple scatter)
-    # -------------------------------
-    st.subheader("EUR vs Surface Coordinates")
-    
-    fig_coords = px.scatter(
-        df,
-        x='Surface Latitude',
-        y='Surface Longitude',
-        color='Production (MMcfge)',
-        title="EUR vs Surface Coordinates",
-        labels={'Surface Latitude':'Latitude','Surface Longitude':'Longitude','Production (MMcfge)':'EUR (MMcfge)'},
-        hover_data=['ID','Production (MMcfge)','Depth (feet)','Porosity (decimal)']
-    )
-    st.plotly_chart(fig_coords, use_container_width=True)
-    
-    # -------------------------------
-    # 4. EUR vs Stimulation Parameters (simple column + trend line)
-    # -------------------------------
-    st.subheader("EUR vs Stimulation Parameters")
-    
-    stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
-                     'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
-    
-    for feature in stim_features:
-        fig = px.bar(
-            df,
-            x=feature,
-            y='Production (MMcfge)',
-            title=f"EUR vs {feature}",
-            labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
-            hover_data=['ID','Depth (feet)','Porosity (decimal)']
-        )
-        # Trend line
-        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
-        trendline = trend[0]*df[feature] + trend[1]
-        fig.add_scatter(x=df[feature], y=trendline, mode='lines', name='Trend Line', line=dict(color='red'))
-        
-        st.plotly_chart(fig, use_container_width=True)
+# -------------------------------
+# 1. EUR vs Depth (line chart + trend line)
+# -------------------------------
+st.subheader("EUR (Production) vs Depth")
 
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.scatter(df['Depth (feet)'], df['Production (MMcfge)'], color='blue', label='Data')
+# Trend line
+trend = np.polyfit(df['Depth (feet)'], df['Production (MMcfge)'], 1)
+trendline = trend[0]*df['Depth (feet)'] + trend[1]
+ax.plot(df['Depth (feet)'], trendline, color='red', label='Trend Line')
+
+ax.set_xlabel("Depth (feet)")
+ax.set_ylabel("EUR (MMcfge)")
+ax.set_title("EUR vs Depth")
+ax.legend()
+st.pyplot(fig)
+
+
+# -------------------------------
+# 2. EUR vs Formation Properties (bar charts + trend line)
+# -------------------------------
+st.subheader("EUR vs Formation Properties")
+
+formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
+                      'Porosity (decimal)', 'Resistivity (Ohm-m)']
+
+for feature in formation_features:
+    fig, ax = plt.subplots()
+    ax.bar(df[feature], df['Production (MMcfge)'], color='skyblue', label='Data')
+    
+    # Trend line
+    trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
+    trendline = trend[0]*df[feature] + trend[1]
+    ax.plot(df[feature], trendline, color='red', linewidth=2, label='Trend Line')
+    
+    ax.set_xlabel(feature)
+    ax.set_ylabel("EUR (MMcfge)")
+    ax.set_title(f"EUR vs {feature}")
+    ax.legend()
+    st.pyplot(fig)
+
+
+# -------------------------------
+# 3. EUR vs Stimulation Parameters (bar charts + trend line)
+# -------------------------------
+st.subheader("EUR vs Stimulation Parameters")
+
+stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
+                 'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
+
+for feature in stim_features:
+    fig, ax = plt.subplots()
+    ax.bar(df[feature], df['Production (MMcfge)'], color='lightgreen', label='Data')
+    
+    # Trend line
+    trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
+    trendline = trend[0]*df[feature] + trend[1]
+    ax.plot(df[feature], trendline, color='red', linewidth=2, label='Trend Line')
+    
+    ax.set_xlabel(feature)
+    ax.set_ylabel("EUR (MMcfge)")
+    ax.set_title(f"EUR vs {feature}")
+    ax.legend()
+    st.pyplot(fig)
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -239,6 +226,7 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production  # Save for economic analysis
+
 
 
 
