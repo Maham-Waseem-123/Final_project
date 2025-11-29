@@ -1,36 +1,72 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 import plotly.express as px
 
-# ---------------------------
-# BACKEND: Data & Model Training
-# ---------------------------
+# ============================================
+# 1. LOAD DATA
+# ============================================
 
 @st.cache_data
 def load_data():
-    url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
-    combined_data = pd.read_csv(url)
-    combined_data.columns = combined_data.columns.str.strip().str.replace('\n','').str.replace('\xa0','')
-    return combined_data
+    url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/finaldata.csv"
+    df = pd.read_csv(url)
+
+    # Clean column names
+    df.columns = df.columns.str.strip().str.replace("\n", "").str.replace("\xa0", "")
+
+    return df
+
+
+# ============================================
+# 2. TRAIN MODEL WITH LABEL ENCODING
+# ============================================
 
 @st.cache_resource
 def train_model(df):
-    feature_cols = df.drop(columns=['ID', 'Production (MMcfge)']).columns.tolist()
-    X = df[feature_cols]
-    y = df['Production (MMcfge)']
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
+
+    # ---- Features & Target ----
+    target = "Production (MMcfge)"
+    feature_cols = df.drop(columns=["ID", target]).columns.tolist()
+
+    X = df[feature_cols].copy()
+    y = df[target]
+
+    # ---- Define categorical features to Label Encode ----
+    categorical_features = [
+        'Depth (feet)', 'Thickness (feet)', 'Normalized Gamma Ray (API)',
+        'Density (g/cm3)', 'Porosity (decimal)', 'Resistivity (Ohm-m)'
+    ]
+
+    # TRAIN–TEST SPLIT FIRST (Correct!)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    # ---- Convert to string before encoding ----
+    for col in categorical_features:
+        X_train[col] = X_train[col].astype(str)
+        X_test[col] = X_test[col].astype(str)
+
+    # ---- Label Encoding ----
+    le_dict = {}
+    for col in categorical_features:
+        le = LabelEncoder()
+        X_train[col] = le.fit_transform(X_train[col])
+        X_test[col] = le.transform(X_test[col])
+        le_dict[col] = le
+
+    # ---- Scaling ----
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
-    
+
+    # ---- Train GBR Model ----
     gbr = GradientBoostingRegressor(
-        loss='absolute_error',
+        loss="absolute_error",
         learning_rate=0.1,
         n_estimators=600,
         max_depth=1,
@@ -38,21 +74,23 @@ def train_model(df):
         max_features=5
     )
     gbr.fit(X_train_scaled, y_train)
-    
-    pred_y = gbr.predict(X_test_scaled)
-    
-    return gbr, scaler, feature_cols, X_test, y_test, pred_y
 
-# ---------------------------
-# LOAD DATA AND TRAIN MODEL
-# ---------------------------
+    pred_y = gbr.predict(X_test_scaled)
+
+    return gbr, scaler, le_dict, feature_cols, X_test, y_test, pred_y
+
+
+# ============================================
+# 3. LOAD + TRAIN
+# ============================================
 
 df = load_data()
-model, scaler, feature_cols, X_test, y_test, pred_y = train_model(df)
+model, scaler, le_dict, feature_cols, X_test, y_test, pred_y = train_model(df)
 
-# ---------------------------
-# APPLICATION LAYOUT
-# ---------------------------
+
+# ============================================
+# 4. STREAMLIT APP LAYOUT
+# ============================================
 
 st.set_page_config(page_title="Reservoir Engineering App", layout="wide")
 
@@ -63,9 +101,9 @@ page = st.sidebar.radio("Select a Page:", [
     "Reservoir Prediction"
 ])
 
-# ---------------------------
-# PAGE 1: Economic Analysis
-# ---------------------------
+# ============================================
+# PAGE 1: ECONOMIC ANALYSIS
+# ============================================
 
 if page == "Economic Analysis":
     st.title("Economic Analysis")
@@ -79,172 +117,120 @@ if page == "Economic Analysis":
     base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
     base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
     gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
-    
-    df['CAPEX'] = (
-        base_drilling_cost * df['Depth (feet)'] +
-        base_completion_cost * df['Gross Perforated Interval (ft)'] +
-        proppant_cost_per_lb * df['Proppant per foot (lbs)'] * df['Gross Perforated Interval (ft)'] +
-        water_cost_per_bbl * df['Water per foot (bbls)'] * df['Gross Perforated Interval (ft)'] +
-        additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)']
+
+    # CAPEX
+    df["CAPEX"] = (
+        base_drilling_cost * df["Depth (feet)"] +
+        base_completion_cost * df["Gross Perforated Interval (ft)"] +
+        proppant_cost_per_lb * df["Proppant per foot (lbs)"] * df["Gross Perforated Interval (ft)"] +
+        water_cost_per_bbl * df["Water per foot (bbls)"] * df["Gross Perforated Interval (ft)"] +
+        additive_cost_per_bbl * df["Additive per foot (bbls)"] * df["Gross Perforated Interval (ft)"]
     )
-    
-    df['OPEX'] = (
+
+    # OPEX
+    df["OPEX"] = (
         base_maintenance_cost +
         base_pump_cost +
-        proppant_cost_per_lb * df['Proppant per foot (lbs)'] * df['Gross Perforated Interval (ft)'] +
-        water_cost_per_bbl * df['Water per foot (bbls)'] * df['Gross Perforated Interval (ft)'] +
-        additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)']
+        proppant_cost_per_lb * df["Proppant per foot (lbs)"] * df["Gross Perforated Interval (ft)"] +
+        water_cost_per_bbl * df["Water per foot (bbls)"] * df["Gross Perforated Interval (ft)"] +
+        additive_cost_per_bbl * df["Additive per foot (bbls)"] * df["Gross Perforated Interval (ft)"]
     )
-    
-    df['Revenue'] = df['Production (MMcfge)'] * gas_price
-    df['Profit'] = df['Revenue'] - df['CAPEX'] - df['OPEX']
-    
+
+    df["Revenue"] = df["Production (MMcfge)"] * gas_price
+    df["Profit"] = df["Revenue"] - df["CAPEX"] - df["OPEX"]
+
     st.subheader("Economic Metrics of Existing Wells")
-    st.dataframe(df[['ID','CAPEX','OPEX','Revenue','Profit']])
-    
-    if 'predicted_production' in st.session_state:
+    st.dataframe(df[['ID', 'CAPEX', 'OPEX', 'Revenue', 'Profit']])
+
+    if "predicted_production" in st.session_state:
         st.subheader("Economic Metrics for Predicted Well")
-        new_prod = st.session_state.predicted_production
-        new_capex = base_drilling_cost * df['Depth (feet)'].mean() + \
-                    base_completion_cost * df['Gross Perforated Interval (ft)'].mean()
+        P = st.session_state.predicted_production
+        new_capex = base_drilling_cost * df["Depth (feet)"].mean() + \
+                     base_completion_cost * df["Gross Perforated Interval (ft)"].mean()
         new_opex = base_maintenance_cost + base_pump_cost
-        new_revenue = new_prod * gas_price
+        new_revenue = P * gas_price
         new_profit = new_revenue - new_capex - new_opex
-        st.write(f"Predicted Production: {new_prod:.2f} MMcfge")
+
+        st.write(f"Predicted Production: {P:.2f} MMcfge")
         st.write(f"CAPEX: ${new_capex:,.2f}")
         st.write(f"OPEX: ${new_opex:,.2f}")
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
 
-# ---------------------------
 
-# ---------------------------
-# PAGE 2: Reservoir Engineering Dashboard (with log-transformed production)
-# ---------------------------
+# ============================================
+# PAGE 2: RESERVOIR ENGINEERING DASHBOARD
+# ============================================
 
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
 
+    df["Log_Production"] = np.log1p(df["Production (MMcfge)"])
     hover_cols = ["ID"]
 
-    df['Log_Production'] = np.log1p(df['Production (MMcfge)'])
+    def make_lineplot(xcol, title):
+        fig = px.line(
+            df.sort_values(xcol),
+            x=xcol,
+            y="Log_Production",
+            hover_data=hover_cols + [xcol, "Production (MMcfge)"],
+            labels={"Log_Production": "Log(EUR + 1)"}
+        )
+        st.subheader(title)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # 1️⃣ EUR vs Porosity
-    st.subheader("EUR vs Porosity")
-    fig_porosity = px.line(
-        df.sort_values("Porosity (decimal)"),
-        x="Porosity (decimal)",
-        y="Log_Production",
-        hover_data=hover_cols + ["Porosity (decimal)", "Production (MMcfge)"],
-        labels={"Log_Production": "Log(EUR + 1)"}
-    )
-    st.plotly_chart(fig_porosity, use_container_width=True)
+    make_lineplot("Porosity (decimal)", "EUR vs Porosity")
+    make_lineplot("Resistivity (Ohm-m)", "EUR vs Resistivity")
+    make_lineplot("Additive per foot (bbls)", "EUR vs Additive per foot")
+    make_lineplot("Water per foot (bbls)", "EUR vs Water per foot")
+    make_lineplot("Proppant per foot (lbs)", "EUR vs Proppant per foot")
+    make_lineplot("Gross Perforated Interval (ft)", "EUR vs Gross Perforated Interval")
 
-    # 2️⃣ EUR vs Resistivity
-    st.subheader("EUR vs Resistivity (Ohm-m)")
-    fig_resist = px.line(
-        df.sort_values("Resistivity (Ohm-m)"),
-        x="Resistivity (Ohm-m)",
-        y="Log_Production",
-        hover_data=hover_cols + ["Resistivity (Ohm-m)", "Production (MMcfge)"],
-        labels={"Log_Production": "Log(EUR + 1)"}
-    )
-    st.plotly_chart(fig_resist, use_container_width=True)
-
-    # 3️⃣ EUR vs Additive per foot
-    st.subheader("EUR vs Additive per foot (bbls)")
-    fig_additive = px.line(
-        df.sort_values("Additive per foot (bbls)"),
-        x="Additive per foot (bbls)",
-        y="Log_Production",
-        hover_data=hover_cols + ["Additive per foot (bbls)", "Production (MMcfge)"],
-        labels={"Log_Production": "Log(EUR + 1)"}
-    )
-    st.plotly_chart(fig_additive, use_container_width=True)
-
-    # 4️⃣ EUR vs Water per foot
-    st.subheader("EUR vs Water per foot (bbls)")
-    fig_water = px.line(
-        df.sort_values("Water per foot (bbls)"),
-        x="Water per foot (bbls)",
-        y="Log_Production",
-        hover_data=hover_cols + ["Water per foot (bbls)", "Production (MMcfge)"],
-        labels={"Log_Production": "Log(EUR + 1)"}
-    )
-    st.plotly_chart(fig_water, use_container_width=True)
-
-    # 5️⃣ EUR vs Proppant per foot
-    st.subheader("EUR vs Proppant per foot (lbs)")
-    fig_prop = px.line(
-        df.sort_values("Proppant per foot (lbs)"),
-        x="Proppant per foot (lbs)",
-        y="Log_Production",
-        hover_data=hover_cols + ["Proppant per foot (lbs)", "Production (MMcfge)"],
-        labels={"Log_Production": "Log(EUR + 1)"}
-    )
-    st.plotly_chart(fig_prop, use_container_width=True)
-
-    # 6️⃣ EUR vs Gross Perforated Interval
-    st.subheader("EUR vs Gross Perforated Interval (ft)")
-    fig_gpi = px.line(
-        df.sort_values("Gross Perforated Interval (ft)"),
-        x="Gross Perforated Interval (ft)",
-        y="Log_Production",
-        hover_data=hover_cols + ["Gross Perforated Interval (ft)", "Production (MMcfge)"],
-        labels={"Log_Production": "Log(EUR + 1)"}
-    )
-    st.plotly_chart(fig_gpi, use_container_width=True)
-
-    # 7️⃣ Depth vs Production
+    # Scatter plot for depth
     st.subheader("Depth (feet) vs Production (MMcfge)")
-    fig_depth_prod = px.scatter(
-        df.sort_values("Depth (feet)"),
+    fig = px.scatter(
+        df,
         x="Depth (feet)",
         y="Log_Production",
         hover_data=hover_cols + ["Depth (feet)", "Production (MMcfge)"],
         labels={"Log_Production": "Log(EUR + 1)"}
     )
-    st.plotly_chart(fig_depth_prod, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
 
-# ---------------------------
-# PAGE 3: Reservoir Prediction
-# ---------------------------
+# ============================================
+# PAGE 3: RESERVOIR PREDICTION
+# ============================================
 
 elif page == "Reservoir Prediction":
     st.title("Predict New Well Production")
-    
+
     df[feature_cols] = df[feature_cols].fillna(df[feature_cols].mean())
-    
-    input_data = {}
+
+    user_inputs = {}
+
     for col in feature_cols:
         min_val = float(df[col].min())
         max_val = float(df[col].max())
         mean_val = float(df[col].mean())
-        if min_val == max_val:
-            max_val += 1.0
-        input_data[col] = st.slider(
-            col,
-            min_value=min_val,
-            max_value=max_val,
-            value=mean_val,
+
+        user_inputs[col] = st.slider(
+            col, min_value=min_val, max_value=max_val, value=mean_val,
             step=(max_val - min_val) / 1000
         )
 
     if st.button("Predict Production"):
-        input_df = pd.DataFrame([input_data], columns=feature_cols)
+        input_df = pd.DataFrame([user_inputs], columns=feature_cols)
+
+        # ---- Label Encode user input ----
+        for col, le in le_dict.items():
+            input_df[col] = input_df[col].astype(str)
+            input_df[col] = le.transform(input_df[col])
+
+        # ---- Scale ----
         input_scaled = scaler.transform(input_df)
-        pred_production = model.predict(input_scaled)[0]
-        st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
-        st.session_state.predicted_production = pred_production
 
+        pred = model.predict(input_scaled)[0]
+        st.success(f"Predicted Production (MMcfge): {pred:.2f}")
 
-
-
-
-
-
-
-
-
-
+        st.session_state.predicted_production = pred
