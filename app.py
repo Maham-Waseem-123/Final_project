@@ -65,33 +65,56 @@ page = st.sidebar.radio("Select a Page:", [
 if page == "Spatial Visualization":
     st.title("Spatial Visualization")
     st.subheader("Production Zones")
-    
-    map_option = st.radio("Select Visualization Type:", ["Map Visualization", "Cluster/Zonation"])
-    
-    if map_option == "Map Visualization":
-        fig = px.scatter_mapbox(
-            df, lat="Surface Latitude", lon="Surface Longitude",
-            color="Production (MMcfge)",
-            color_continuous_scale=["green","yellow","red"],
-            size="Production (MMcfge)", size_max=15,
-            zoom=5
-        )
-        fig.update_layout(mapbox_style="open-street-map")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    else:
-        st.subheader("KMeans Clustering for Zonation")
-        n_clusters = st.slider("Select Number of Clusters", 2, 10, 4)
-        cluster_features = st.multiselect("Select Features for Clustering", df.columns[1:-1], default=['Production (MMcfge)','Porosity (decimal)','Depth (feet)'])
-        
-        km = KMeans(n_clusters=n_clusters, random_state=42)
-        df['Cluster'] = km.fit_predict(df[cluster_features])
-        
-        fig = px.scatter(
-            df, x="Depth (feet)", y="Production (MMcfge)", color="Cluster",
-            hover_data=['ID']
-        )
-        st.plotly_chart(fig, use_container_width=True)
+
+    # Define production zones based on thresholds
+    def categorize_production(production):
+        if production >= 500:   # high production
+            return "🛢️ Productive"
+        elif production >= 200: # moderate production
+            return "🛢️ Moderate"
+        else:                  # low production
+            return "🛢️ Unproductive"
+
+    df['Production Zone'] = df['Production (MMcfge)'].apply(categorize_production)
+
+    # Map visualization with grey background
+    import plotly.graph_objects as go
+
+    fig = go.Figure()
+
+    # Add wells as scatter points with emojis
+    zone_colors = {
+        "🛢️ Productive": "green",
+        "🛢️ Moderate": "yellow",
+        "🛢️ Unproductive": "red"
+    }
+
+    for zone in df['Production Zone'].unique():
+        zone_df = df[df['Production Zone'] == zone]
+        fig.add_trace(go.Scattergeo(
+            lon = zone_df['Surface Longitude'],
+            lat = zone_df['Surface Latitude'],
+            text = zone_df['Production Zone'],
+            mode = 'text',
+            textfont=dict(size=20),
+            marker=dict(color=zone_colors[zone])
+        ))
+
+    fig.update_layout(
+        geo=dict(
+            showland=True,
+            landcolor="lightgrey",
+            showcountries=True,
+            countrycolor="grey",
+            showocean=True,
+            oceancolor="lightgrey",
+        ),
+        margin={"r":0,"t":0,"l":0,"b":0},
+        height=600
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
 
 # ---------------------------
 # PAGE 2: Economic Analysis
@@ -204,4 +227,5 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
