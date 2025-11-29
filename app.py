@@ -123,29 +123,10 @@ if page == "Economic Analysis":
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
 
-    # Common hover data for all plots
-    hover_cols = ["Well_ID", "Latitude", "Longitude"]
+    hover_cols = ["ID", "Surface Latitude", "Surface Longitude"]
 
     # ------------------------------------------------------
-    # 0️⃣ EUR vs Depth (line chart)
-    # ------------------------------------------------------
-    st.subheader("EUR (Production) vs Depth")
-
-    fig_depth = px.line(
-        df.sort_values("Depth (feet)"),
-        x="Depth (feet)",
-        y="Production (MMcfge)",
-        markers=True,
-        hover_data=["Well_ID", "Latitude", "Longitude", "Depth (feet)", "Production (MMcfge)"],
-        labels={
-            "Depth (feet)": "Depth (feet)",
-            "Production (MMcfge)": "EUR (MMcfge)"
-        },
-    )
-    st.plotly_chart(fig_depth, use_container_width=True)
-
-    # ------------------------------------------------------
-    # 1️⃣ EUR vs Porosity (bar chart)
+    # 1️⃣ EUR vs Porosity (decimal) - BAR CHART
     # ------------------------------------------------------
     st.subheader("EUR vs Porosity (decimal)")
 
@@ -159,7 +140,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig_porosity, use_container_width=True)
 
     # ------------------------------------------------------
-    # 2️⃣ EUR vs Resistivity (bar chart)
+    # 2️⃣ EUR vs Resistivity (Ohm-m) - BAR CHART
     # ------------------------------------------------------
     st.subheader("EUR vs Resistivity (Ohm-m)")
 
@@ -173,7 +154,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig_resist, use_container_width=True)
 
     # ------------------------------------------------------
-    # 3️⃣ EUR vs Additive per foot (line chart)
+    # 3️⃣ EUR vs Additive per foot (line)
     # ------------------------------------------------------
     st.subheader("EUR vs Additive per foot (bbls)")
 
@@ -188,7 +169,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig_additive, use_container_width=True)
 
     # ------------------------------------------------------
-    # 4️⃣ EUR vs Water per foot (line chart)
+    # 4️⃣ EUR vs Water per foot (line)
     # ------------------------------------------------------
     st.subheader("EUR vs Water per foot (bbls)")
 
@@ -203,7 +184,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig_water, use_container_width=True)
 
     # ------------------------------------------------------
-    # 5️⃣ EUR vs Proppant per foot (line chart)
+    # 5️⃣ EUR vs Proppant per foot (line)
     # ------------------------------------------------------
     st.subheader("EUR vs Proppant per foot (lbs)")
 
@@ -218,7 +199,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig_prop, use_container_width=True)
 
     # ------------------------------------------------------
-    # 6️⃣ EUR vs Gross Perforated Interval (ft)
+    # 6️⃣ EUR vs Gross Perforated Interval (line)
     # ------------------------------------------------------
     st.subheader("EUR vs Gross Perforated Interval (ft)")
 
@@ -231,7 +212,6 @@ elif page == "Reservoir Engineering Dashboard":
         labels={"Production (MMcfge)": "EUR (MMcfge)"},
     )
     st.plotly_chart(fig_gpi, use_container_width=True)
-
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -263,6 +243,7 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
 
 
