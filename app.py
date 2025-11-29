@@ -77,11 +77,11 @@ if 'df' in st.session_state:
     st.subheader("Add New Well (What-If Scenario)")
     new_well = {}
     col1, col2 = st.columns(2)
-    for feature in ['Surface Latitude', 'Surface Longitude'] + property_list:
+    for i, feature in enumerate(['Surface Latitude', 'Surface Longitude'] + property_list):
         new_well[feature] = st.number_input(
             f"{feature}", 
             value=float(df[feature].mean()), 
-            key=f"new_well_{feature}"
+            key=f"new_well_{feature}_{i}"  # unique key using index
         )
 
     if st.button("Add Well", key="add_well_button"):
