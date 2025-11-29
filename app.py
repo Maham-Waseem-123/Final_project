@@ -73,22 +73,22 @@ if 'df' in st.session_state:
     # Interpolation method (only Kriging)
     st.info("Using Ordinary Kriging for Interpolation")
     
-    # Add new well for "what-if"
+    # Add new well form (What-If)
     st.subheader("Add New Well (What-If Scenario)")
-    new_well = {}
-    col1, col2 = st.columns(2)
-    for i, feature in enumerate(['Surface Latitude', 'Surface Longitude'] + property_list):
-        new_well[feature] = st.number_input(
-            f"{feature}", 
-            value=float(df[feature].mean()), 
-            key=f"new_well_{feature}_{i}"  # unique key using index
-        )
-
-    if st.button("Add Well", key="add_well_button"):
-        df_new = df.append(new_well, ignore_index=True)
-        st.session_state.df = df_new
-        st.success("New well added! Interpolation will include this well now.")
-        df = df_new
+    with st.form(key="add_well_form"):
+        new_well = {}
+        for feature in ['Surface Latitude', 'Surface Longitude'] + property_list:
+            new_well[feature] = st.number_input(
+                f"{feature}", 
+                value=float(df[feature].mean()), 
+                key=f"form_{feature}"
+            )
+        submitted = st.form_submit_button("Add Well")
+        if submitted:
+            df_new = df.append(new_well, ignore_index=True)
+            st.session_state.df = df_new
+            st.success("New well added! Interpolation will include this well now.")
+            df = df_new
 
     # Create a grid for interpolation
     x_min, x_max = df['Surface Longitude'].min(), df['Surface Longitude'].max()
