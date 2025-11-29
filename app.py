@@ -8,23 +8,30 @@ from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 
 # ------------------------------------------------
-# Backend: Load data & train model
+# MUST BE FIRST
+# ------------------------------------------------
+st.set_page_config(page_title="Reservoir Analysis App", layout="wide")
+
+# ------------------------------------------------
+# Backend: Load Data & Train Model
 # ------------------------------------------------
 @st.cache_data
 def load_and_train():
     csv_url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
-    combined_data = pd.read_csv(csv_url)
+    df = pd.read_csv(csv_url)
 
-    df = combined_data.copy()
-
+    # Features and target
     X = df.drop(columns=['ID', 'Production (MMcfge)'])
     y = df['Production (MMcfge)']
 
+    # Split
     X_train, X_test, _, _ = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    # Scaling
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
 
+    # Model
     gbr = GradientBoostingRegressor(
         loss='absolute_error',
         learning_rate=0.1,
@@ -42,13 +49,12 @@ def load_and_train():
 df, X, y, scaler, gbr = load_and_train()
 
 # ------------------------------------------------
-# App Layout
+# Title
 # ------------------------------------------------
-st.set_page_config(page_title="Reservoir Analysis App", layout="wide")
 st.title("Reservoir Analysis & Prediction App")
 
 # ------------------------------------------------
-# GLOBAL ECONOMIC PARAMETERS
+# Sidebar Parameters
 # ------------------------------------------------
 st.sidebar.subheader("Global Economic Parameters")
 
@@ -61,7 +67,9 @@ base_maintenance_cost = st.sidebar.number_input("Maintenance Cost ($/yr)", 10000
 base_pump_cost = st.sidebar.number_input("Pump/Energy Cost ($/yr)", 10000, 100000, 20000)
 gas_price = st.sidebar.number_input("Gas Price ($/MMcfge)", 1, 100, 5)
 
+# ------------------------------------------------
 # Page Navigation
+# ------------------------------------------------
 pages = ["Spatial Visualization", "Economic Analysis", "Reservoir Engineering Dashboard", "Reservoir Prediction"]
 page = st.sidebar.radio("Select Page", pages)
 
@@ -74,12 +82,13 @@ if page == "Spatial Visualization":
     option = st.radio("Choose Visualization", ["Map Visualization", "Cluster Analysis / Zonation"])
 
     if option == "Map Visualization":
+
         fig = px.scatter_mapbox(
             df,
             lat="Surface Latitude",
             lon="Surface Longitude",
             color="Production (MMcfge)",
-            color_continuous_scale=["green", "yellow", "red"],
+            color_continuous_scale="Viridis",
             size="Production (MMcfge)",
             size_max=15,
             zoom=5
@@ -91,14 +100,23 @@ if page == "Spatial Visualization":
         n_clusters = st.slider("Select number of clusters", 2, 10, 4)
 
         df_cluster = df.copy()
-        cluster_cols = ['Depth (feet)', 'Thickness (feet)', 'Porosity (decimal)', 'Production (MMcfge)']
+        cluster_cols = [
+            'Depth (feet)',
+            'Thickness (feet)',
+            'Porosity (decimal)',
+            'Production (MMcfge)'
+        ]
 
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        # FIX: required n_init
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
         df_cluster['Cluster'] = kmeans.fit_predict(df_cluster[cluster_cols])
 
         fig = px.scatter(
-            df_cluster, x='Depth (feet)', y='Production (MMcfge)',
-            color='Cluster', hover_data=['ID', 'Porosity (decimal)']
+            df_cluster,
+            x='Depth (feet)',
+            y='Production (MMcfge)',
+            color='Cluster',
+            hover_data=['ID', 'Porosity (decimal)']
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -110,6 +128,7 @@ elif page == "Economic Analysis":
 
     df_econ = df.copy()
 
+    # CAPEX
     df_econ['CAPEX'] = (
         base_drilling_cost * df_econ['Depth (feet)'] +
         base_completion_cost * df_econ['Gross Perforated Interval (ft)'] +
@@ -118,25 +137,28 @@ elif page == "Economic Analysis":
         additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)']
     )
 
+    # OPEX
     df_econ['OPEX'] = (
         base_maintenance_cost +
         base_pump_cost +
-        (proppant_cost_per_lb * df_econ['Proppant per foot (lbs)'] *
-         df_econ['Gross Perforated Interval (ft)']) +
-        (water_cost_per_bbl * df_econ['Water per foot (bbls)'] *
-         df_econ['Gross Perforated Interval (ft)']) +
-        (additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] *
-         df_econ['Gross Perforated Interval (ft)'])
+        proppant_cost_per_lb * df_econ['Proppant per foot (lbs)'] * df_econ['Gross Perforated Interval (ft)'] +
+        water_cost_per_bbl * df_econ['Water per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)'] +
+        additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)']
     )
 
+    # Revenue & Profit
     df_econ['Revenue'] = df_econ['Production (MMcfge)'] * gas_price
     df_econ['Profit'] = df_econ['Revenue'] - df_econ['CAPEX'] - df_econ['OPEX']
 
     st.subheader("Production vs Economic Metrics")
-    st.plotly_chart(px.scatter(df_econ, x='Production (MMcfge)', y='Revenue',
-                               title='Production vs Revenue'), use_container_width=True)
-    st.plotly_chart(px.scatter(df_econ, x='Production (MMcfge)', y='Profit',
-                               title='Production vs Profit'), use_container_width=True)
+    st.plotly_chart(
+        px.scatter(df_econ, x='Production (MMcfge)', y='Revenue', title='Production vs Revenue'),
+        use_container_width=True
+    )
+    st.plotly_chart(
+        px.scatter(df_econ, x='Production (MMcfge)', y='Profit', title='Production vs Profit'),
+        use_container_width=True
+    )
 
 # ------------------------------------------------
 # Page 3: Reservoir Engineering Dashboard
@@ -144,31 +166,36 @@ elif page == "Economic Analysis":
 elif page == "Reservoir Engineering Dashboard":
     st.header("Reservoir Engineering Insights")
 
-    st.plotly_chart(px.scatter(df, x='Depth (feet)', y='Production (MMcfge)',
-                               trendline="ols", title="Production vs Depth"),
-                    use_container_width=True)
+    st.plotly_chart(
+        px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', trendline="ols", title="Production vs Depth"),
+        use_container_width=True
+    )
 
-    st.plotly_chart(px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)',
-                               trendline="ols", title="Production vs Porosity"),
-                    use_container_width=True)
+    st.plotly_chart(
+        px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', trendline="ols", title="Production vs Porosity"),
+        use_container_width=True
+    )
 
-    st.plotly_chart(px.scatter(
-        df, x='Proppant per foot (lbs)', y='Production (MMcfge)',
-        color='Water per foot (bbls)',
-        size='Additive per foot (bbls)',
-        title="Stimulation Effectiveness"
-    ), use_container_width=True)
+    st.plotly_chart(
+        px.scatter(
+            df,
+            x='Proppant per foot (lbs)',
+            y='Production (MMcfge)',
+            color='Water per foot (bbls)',
+            size='Additive per foot (bbls)',
+            title="Stimulation Effectiveness"
+        ),
+        use_container_width=True
+    )
 
 # ------------------------------------------------
-# Page 4: Reservoir Prediction
+# Page 4: Prediction
 # ------------------------------------------------
 elif page == "Reservoir Prediction":
     st.header("Predict Production & Economic Outcomes for a New Well")
 
     input_dict = {}
-    feature_cols = list(X.columns)
-
-    for col in feature_cols:
+    for col in X.columns:
         input_dict[col] = st.number_input(
             col,
             float(df[col].min()),
@@ -182,6 +209,7 @@ elif page == "Reservoir Prediction":
 
     st.success(f"Predicted Production: {pred_production:.2f} MMcfge")
 
+    # CAPEX Prediction
     predicted_capex = (
         base_drilling_cost * input_dict['Depth (feet)'] +
         base_completion_cost * input_dict['Gross Perforated Interval (ft)'] +
@@ -193,15 +221,16 @@ elif page == "Reservoir Prediction":
         input_dict['Gross Perforated Interval (ft)']
     )
 
+    # OPEX Prediction
     predicted_opex = (
         base_maintenance_cost +
         base_pump_cost +
-        (proppant_cost_per_lb * input_dict['Proppant per foot (lbs)'] *
-         input_dict['Gross Perforated Interval (ft)']) +
-        (water_cost_per_bbl * input_dict['Water per foot (bbls)'] *
-         input_dict['Gross Perforated Interval (ft)']) +
-        (additive_cost_per_bbl * input_dict['Additive per foot (bbls)'] *
-         input_dict['Gross Perforated Interval (ft)'])
+        proppant_cost_per_lb * input_dict['Proppant per foot (lbs)'] *
+        input_dict['Gross Perforated Interval (ft)'] +
+        water_cost_per_bbl * input_dict['Water per foot (bbls)'] *
+        input_dict['Gross Perforated Interval (ft)'] +
+        additive_cost_per_bbl * input_dict['Additive per foot (bbls)'] *
+        input_dict['Gross Perforated Interval (ft)']
     )
 
     predicted_revenue = pred_production * gas_price
