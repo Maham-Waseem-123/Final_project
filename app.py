@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
-import plotly.express as px
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
@@ -43,7 +42,59 @@ def train_model(df):
     
     return gbr, scaler, feature_cols, X_test, y_test, pred_y
 
-# Load data and train model
+# ---------------------------
+# CACHE DASHBOARD PLOTS
+# ---------------------------
+
+@st.cache_data
+def generate_dashboard_charts(df):
+    charts = {}
+
+    # EUR vs Depth
+    fig, ax = plt.subplots()
+    ax.scatter(df['Depth (feet)'], df['Production (MMcfge)'], color='blue', label='Data')
+    trend = np.polyfit(df['Depth (feet)'], df['Production (MMcfge)'], 1)
+    ax.plot(df['Depth (feet)'], trend[0]*df['Depth (feet)'] + trend[1], color='red', label='Trend Line')
+    ax.set_xlabel("Depth (feet)")
+    ax.set_ylabel("EUR (MMcfge)")
+    ax.set_title("EUR vs Depth")
+    ax.legend()
+    charts['EUR_vs_Depth'] = fig
+
+    # EUR vs Formation Properties
+    formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
+                          'Porosity (decimal)', 'Resistivity (Ohm-m)']
+    charts['EUR_vs_Formation'] = []
+    for feature in formation_features:
+        fig, ax = plt.subplots()
+        ax.bar(df[feature], df['Production (MMcfge)'], color='skyblue')
+        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
+        ax.plot(df[feature], trend[0]*df[feature]+trend[1], color='red', linewidth=2)
+        ax.set_xlabel(feature)
+        ax.set_ylabel("EUR (MMcfge)")
+        ax.set_title(f"EUR vs {feature}")
+        charts['EUR_vs_Formation'].append(fig)
+
+    # EUR vs Stimulation Parameters
+    stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
+                     'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
+    charts['EUR_vs_Stimulation'] = []
+    for feature in stim_features:
+        fig, ax = plt.subplots()
+        ax.bar(df[feature], df['Production (MMcfge)'], color='lightgreen')
+        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
+        ax.plot(df[feature], trend[0]*df[feature]+trend[1], color='red', linewidth=2)
+        ax.set_xlabel(feature)
+        ax.set_ylabel("EUR (MMcfge)")
+        ax.set_title(f"EUR vs {feature}")
+        charts['EUR_vs_Stimulation'].append(fig)
+
+    return charts
+
+# ---------------------------
+# LOAD DATA AND TRAIN MODEL
+# ---------------------------
+
 df = load_data()
 model, scaler, feature_cols, X_test, y_test, pred_y = train_model(df)
 
@@ -77,7 +128,6 @@ if page == "Economic Analysis":
     base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
     gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
     
-    # Existing wells economic calculation
     df['CAPEX'] = (
         base_drilling_cost * df['Depth (feet)'] +
         base_completion_cost * df['Gross Perforated Interval (ft)'] +
@@ -100,7 +150,6 @@ if page == "Economic Analysis":
     st.subheader("Economic Metrics of Existing Wells")
     st.dataframe(df[['ID','CAPEX','OPEX','Revenue','Profit']])
     
-    # New well economics (from prediction)
     if 'predicted_production' in st.session_state:
         st.subheader("Economic Metrics for Predicted Well")
         new_prod = st.session_state.predicted_production
@@ -115,7 +164,6 @@ if page == "Economic Analysis":
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
 
-
 # ---------------------------
 # PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
@@ -123,70 +171,24 @@ if page == "Economic Analysis":
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     
-    # -------------------------------
-    # Clean column names
-    # -------------------------------
-    df.columns = df.columns.str.strip()
-    df.columns = df.columns.str.replace('\n','')
-    df.columns = df.columns.str.replace('\xa0','')
+    df.columns = df.columns.str.strip().str.replace('\n','').str.replace('\xa0','')
     
-    # Create concatenated Surface Coordinates
     if 'Surface Latitude' in df.columns and 'Surface Longitude' in df.columns:
         df['Surface_Coords'] = df['Surface Latitude'].astype(str) + ", " + df['Surface Longitude'].astype(str)
     
-    # -------------------------------
-    # 1. EUR vs Depth (line chart + trend line)
-    # -------------------------------
+    # Generate and cache plots
+    charts = generate_dashboard_charts(df)
+    
     st.subheader("EUR (Production) vs Depth")
-    fig, ax = plt.subplots()
-    ax.scatter(df['Depth (feet)'], df['Production (MMcfge)'], color='blue', label='Data')
-    trend = np.polyfit(df['Depth (feet)'], df['Production (MMcfge)'], 1)
-    trendline = trend[0]*df['Depth (feet)'] + trend[1]
-    ax.plot(df['Depth (feet)'], trendline, color='red', label='Trend Line')
-    ax.set_xlabel("Depth (feet)")
-    ax.set_ylabel("EUR (MMcfge)")
-    ax.set_title("EUR vs Depth")
-    ax.legend()
-    st.pyplot(fig)
-    
-    # -------------------------------
-    # 2. EUR vs Formation Properties
-    # -------------------------------
+    st.pyplot(charts['EUR_vs_Depth'])
+
     st.subheader("EUR vs Formation Properties")
-    formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
-                          'Porosity (decimal)', 'Resistivity (Ohm-m)']
-    
-    for feature in formation_features:
-        fig, ax = plt.subplots()
-        ax.bar(df[feature], df['Production (MMcfge)'], color='skyblue', label='Data')
-        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
-        trendline = trend[0]*df[feature] + trend[1]
-        ax.plot(df[feature], trendline, color='red', linewidth=2, label='Trend Line')
-        ax.set_xlabel(feature)
-        ax.set_ylabel("EUR (MMcfge)")
-        ax.set_title(f"EUR vs {feature}")
-        ax.legend()
-        st.pyplot(fig)
-    
-    # -------------------------------
-    # 3. EUR vs Stimulation Parameters
-    # -------------------------------
-    st.subheader("EUR vs Stimulation Parameters")
-    stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
-                     'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
-    
-    for feature in stim_features:
-        fig, ax = plt.subplots()
-        ax.bar(df[feature], df['Production (MMcfge)'], color='lightgreen', label='Data')
-        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
-        trendline = trend[0]*df[feature] + trend[1]
-        ax.plot(df[feature], trendline, color='red', linewidth=2, label='Trend Line')
-        ax.set_xlabel(feature)
-        ax.set_ylabel("EUR (MMcfge)")
-        ax.set_title(f"EUR vs {feature}")
-        ax.legend()
+    for fig in charts['EUR_vs_Formation']:
         st.pyplot(fig)
 
+    st.subheader("EUR vs Stimulation Parameters")
+    for fig in charts['EUR_vs_Stimulation']:
+        st.pyplot(fig)
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -195,7 +197,6 @@ elif page == "Reservoir Engineering Dashboard":
 elif page == "Reservoir Prediction":
     st.title("Predict New Well Production")
     
-    st.subheader("Input Parameters")
     df[feature_cols] = df[feature_cols].fillna(df[feature_cols].mean())
     
     input_data = {}
@@ -218,4 +219,4 @@ elif page == "Reservoir Prediction":
         input_scaled = scaler.transform(input_df)
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
-        st.session_state.predicted_production = pred_production  # Save for economic analysis
+        st.session_state.predicted_production = pred_production
