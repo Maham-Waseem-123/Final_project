@@ -5,8 +5,6 @@ import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.cluster import KMeans
-from pykrige.ok import OrdinaryKriging
 
 # ---------------------------
 # BACKEND: Data & Model Training
@@ -14,7 +12,6 @@ from pykrige.ok import OrdinaryKriging
 
 @st.cache_data
 def load_data():
-    # Load dataset directly from GitHub
     url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
     combined_data = pd.read_csv(url)
     return combined_data
@@ -54,111 +51,15 @@ st.set_page_config(page_title="Reservoir Engineering App", layout="wide")
 
 st.sidebar.title("Pages")
 page = st.sidebar.radio("Select a Page:", [
-    "Spatial Visualization",
     "Economic Analysis",
     "Reservoir Engineering Dashboard",
     "Reservoir Prediction"
 ])
 
 # ---------------------------
-# PAGE 1: Spatial Visualization
+# PAGE 1: Economic Analysis
 # ---------------------------
-if page == "Spatial Visualization":
-    st.title("2D Reservoir Property Map")
-    st.subheader("Interpolated Production Zones")
-
-    from pykrige.ok import OrdinaryKriging
-    import numpy as np
-    import plotly.express as px
-
-    # Define production zones thresholds
-    def production_zone_label(value):
-        if value > 1500:
-            return "Productive"
-        elif value >= 1300:
-            return "Moderate"
-        else:
-            return "Unproductive"
-
-    # Extract X/Y and production
-    x = df['Surface Longitude'].values
-    y = df['Surface Latitude'].values
-    z = df['Production (MMcfge)'].values
-
-    # Create a grid for interpolation
-    grid_x = np.linspace(x.min(), x.max(), 100)  # 100x100 grid
-    grid_y = np.linspace(y.min(), y.max(), 100)
-    grid_xx, grid_yy = np.meshgrid(grid_x, grid_y)
-
-    # Perform Kriging interpolation
-    OK = OrdinaryKriging(
-        x, y, z,
-        variogram_model='spherical',
-        verbose=False,
-        enable_plotting=False
-    )
-    grid_z, ss = OK.execute('grid', grid_x, grid_y)
-
-    # Convert interpolated values to production zones
-    zone_grid = np.vectorize(production_zone_label)(grid_z)
-
-    # Map colors for zones
-    zone_colors = {
-        "Productive": "green",
-        "Moderate": "yellow",
-        "Unproductive": "red"
-    }
-
-    # Flatten the grid for plotting
-    flat_x = grid_xx.flatten()
-    flat_y = grid_yy.flatten()
-    flat_zone = zone_grid.flatten()
-
-    # Create a DataFrame for Plotly
-    interp_df = pd.DataFrame({
-        "X": flat_x,
-        "Y": flat_y,
-        "Zone": flat_zone
-    })
-
-    # Plot 2D schematic map
-    fig = px.scatter(
-        interp_df,
-        x="X",
-        y="Y",
-        color="Zone",
-        color_discrete_map=zone_colors,
-        opacity=0.7,
-        title="2D Interpolated Production Zones",
-        hover_data=[]
-    )
-
-    # Add actual wells as well emojis
-    productive_colors = df['Production (MMcfge)'].apply(production_zone_label).map(zone_colors)
-    fig.add_scatter(
-        x=df['Surface Longitude'],
-        y=df['Surface Latitude'],
-        mode='text',
-        text=['🛢️']*len(df),
-        textfont=dict(size=12),
-        marker=dict(color=productive_colors),
-        name="Wells"
-    )
-
-    fig.update_layout(
-        xaxis_title="X Field Coordinate (Longitude)",
-        yaxis_title="Y Field Coordinate (Latitude)",
-        plot_bgcolor="lightgrey",
-        height=600
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ---------------------------
-# PAGE 2: Economic Analysis
-# ---------------------------
-elif page == "Economic Analysis":
+if page == "Economic Analysis":
     st.title("Economic Analysis")
 
     st.subheader("Adjust Cost Parameters")
@@ -172,7 +73,6 @@ elif page == "Economic Analysis":
     base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
     gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
     
-    # Calculate CAPEX
     df['CAPEX'] = (
         base_drilling_cost * df['Depth (feet)'] +
         base_completion_cost * df['Gross Perforated Interval (ft)'] +
@@ -181,16 +81,14 @@ elif page == "Economic Analysis":
         additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)']
     )
     
-    # Calculate OPEX
     df['OPEX'] = (
         base_maintenance_cost +
         base_pump_cost +
-        (proppant_cost_per_lb * df['Proppant per foot (lbs)'] * df['Gross Perforated Interval (ft)']) +
-        (water_cost_per_bbl * df['Water per foot (bbls)'] * df['Gross Perforated Interval (ft)']) +
-        (additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)'])
+        proppant_cost_per_lb * df['Proppant per foot (lbs)'] * df['Gross Perforated Interval (ft)'] +
+        water_cost_per_bbl * df['Water per foot (bbls)'] * df['Gross Perforated Interval (ft)'] +
+        additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)']
     )
     
-    # Revenue & Profit
     df['Revenue'] = df['Production (MMcfge)'] * gas_price
     df['Profit'] = df['Revenue'] - df['CAPEX'] - df['OPEX']
     
@@ -204,7 +102,7 @@ elif page == "Economic Analysis":
     st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------
-# PAGE 3: Reservoir Engineering Dashboard
+# PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
@@ -227,7 +125,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
-# PAGE 4: Reservoir Prediction
+# PAGE 3: Reservoir Prediction
 # ---------------------------
 elif page == "Reservoir Prediction":
     st.title("Predict New Well Production & Economics")
@@ -242,7 +140,6 @@ elif page == "Reservoir Prediction":
     pred_production = model.predict(input_scaled)[0]
     st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
     
-    # Estimate CAPEX & OPEX
     capex = (
         base_drilling_cost * input_df['Depth (feet)'].iloc[0] +
         base_completion_cost * input_df['Gross Perforated Interval (ft)'].iloc[0] +
@@ -266,11 +163,3 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
-
-
-
-
-
-
-
-
