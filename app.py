@@ -1,4 +1,3 @@
-# streamlit_reservoir_app_fixed.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -13,23 +12,18 @@ from sklearn.cluster import KMeans
 # ------------------------------------------------
 @st.cache_data
 def load_and_train():
-    # Load dataset from GitHub raw link
     csv_url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
     combined_data = pd.read_csv(csv_url)
 
     df = combined_data.copy()
 
-    # Prepare ML data
     X = df.drop(columns=['ID', 'Production (MMcfge)'])
     y = df['Production (MMcfge)']
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    X_train, X_test, _, _ = train_test_split(X, y, test_size=0.2, random_state=42)
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
 
     gbr = GradientBoostingRegressor(
         loss='absolute_error',
@@ -40,7 +34,7 @@ def load_and_train():
         max_features=5
     )
 
-    gbr.fit(X_train_scaled, y_train)
+    gbr.fit(X_train_scaled, y)
 
     return df, X, y, scaler, gbr
 
@@ -66,7 +60,6 @@ additive_cost_per_bbl = st.sidebar.number_input("Additive Cost ($/bbl)", 0.1, 10
 base_maintenance_cost = st.sidebar.number_input("Maintenance Cost ($/yr)", 10000, 100000, 30000)
 base_pump_cost = st.sidebar.number_input("Pump/Energy Cost ($/yr)", 10000, 100000, 20000)
 gas_price = st.sidebar.number_input("Gas Price ($/MMcfge)", 1, 100, 5)
-
 
 # Page Navigation
 pages = ["Spatial Visualization", "Economic Analysis", "Reservoir Engineering Dashboard", "Reservoir Prediction"]
@@ -128,9 +121,12 @@ elif page == "Economic Analysis":
     df_econ['OPEX'] = (
         base_maintenance_cost +
         base_pump_cost +
-        (proppant_cost_per_lb * df_econ['Proppant per foot (lbs)'] * df_econ['Gross Perforated Interval (ft)']) +
-        (water_cost_per_bbl * df_econ['Water per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)']) +
-        (additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)'])
+        (proppant_cost_per_lb * df_econ['Proppant per foot (lbs)'] *
+         df_econ['Gross Perforated Interval (ft)']) +
+        (water_cost_per_bbl * df_econ['Water per foot (bbls)'] *
+         df_econ['Gross Perforated Interval (ft)']) +
+        (additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] *
+         df_econ['Gross Perforated Interval (ft)'])
     )
 
     df_econ['Revenue'] = df_econ['Production (MMcfge)'] * gas_price
@@ -150,11 +146,11 @@ elif page == "Reservoir Engineering Dashboard":
 
     st.plotly_chart(px.scatter(df, x='Depth (feet)', y='Production (MMcfge)',
                                trendline="ols", title="Production vs Depth"),
-                               use_container_width=True)
+                    use_container_width=True)
 
     st.plotly_chart(px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)',
                                trendline="ols", title="Production vs Porosity"),
-                               use_container_width=True)
+                    use_container_width=True)
 
     st.plotly_chart(px.scatter(
         df, x='Proppant per foot (lbs)', y='Production (MMcfge)',
@@ -186,7 +182,6 @@ elif page == "Reservoir Prediction":
 
     st.success(f"Predicted Production: {pred_production:.2f} MMcfge")
 
-    # Economic prediction
     predicted_capex = (
         base_drilling_cost * input_dict['Depth (feet)'] +
         base_completion_cost * input_dict['Gross Perforated Interval (ft)'] +
@@ -216,4 +211,3 @@ elif page == "Reservoir Prediction":
     st.write(f"**Predicted OPEX:** ${predicted_opex:,.2f}")
     st.write(f"**Predicted Revenue:** ${predicted_revenue:,.2f}")
     st.write(f"**Predicted Profit:** ${predicted_profit:,.2f}")
-
