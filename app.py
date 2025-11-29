@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
+from pykrige.ok import OrdinaryKriging
 
 # ---------------------------
 # BACKEND: Data & Model Training
@@ -265,6 +266,7 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
 
 
