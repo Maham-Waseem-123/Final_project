@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 import plotly.express as px
+
 
 # ============================================
 # 1. LOAD DATA
@@ -22,49 +23,49 @@ def load_data():
 
 
 # ============================================
-# 2. TRAIN MODEL WITH LABEL ENCODING
+# 2. TRAIN MODEL — ONLY NUMERIC FEATURES
 # ============================================
 
 @st.cache_resource
 def train_model(df):
 
-    # ---- Features & Target ----
     target = "Production (MMcfge)"
     feature_cols = df.drop(columns=["ID", target]).columns.tolist()
 
-    X = df[feature_cols].copy()
+    # Auto-detect numeric & categorical columns
+    numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+    categorical_cols = df[feature_cols].select_dtypes(exclude=[np.number]).columns.tolist()
+
+    # Fill missing values
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+
+    for col in categorical_cols:
+        df[col] = df[col].fillna(df[col].mode()[0])
+        df[col] = df[col].astype(str)   # keep as string
+
+    # --------------------------
+    # Training dataset
+    # --------------------------
+    X = df[feature_cols]
     y = df[target]
 
-    # ---- Define categorical features to Label Encode ----
-    categorical_features = [
-        'Depth (feet)', 'Thickness (feet)', 'Normalized Gamma Ray (API)',
-        'Density (g/cm3)', 'Porosity (decimal)', 'Resistivity (Ohm-m)'
-    ]
+    # Convert categorical columns using one-hot encoding
+    X = pd.get_dummies(X, columns=categorical_cols)
 
-    # TRAIN–TEST SPLIT FIRST (Correct!)
+    # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
 
-    # ---- Convert to string before encoding ----
-    for col in categorical_features:
-        X_train[col] = X_train[col].astype(str)
-        X_test[col] = X_test[col].astype(str)
-
-    # ---- Label Encoding ----
-    le_dict = {}
-    for col in categorical_features:
-        le = LabelEncoder()
-        X_train[col] = le.fit_transform(X_train[col])
-        X_test[col] = le.transform(X_test[col])
-        le_dict[col] = le
-
-    # ---- Scaling ----
+    # Scale numeric columns only
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    X_train[X_train.select_dtypes(include=[np.number]).columns] = \
+        scaler.fit_transform(X_train.select_dtypes(include=[np.number]))
 
-    # ---- Train GBR Model ----
+    X_test[X_test.select_dtypes(include=[np.number]).columns] = \
+        scaler.transform(X_test.select_dtypes(include=[np.number]))
+
+    # Train model
     gbr = GradientBoostingRegressor(
         loss="absolute_error",
         learning_rate=0.1,
@@ -73,11 +74,10 @@ def train_model(df):
         random_state=42,
         max_features=5
     )
-    gbr.fit(X_train_scaled, y_train)
 
-    pred_y = gbr.predict(X_test_scaled)
+    gbr.fit(X_train, y_train)
 
-    return gbr, scaler, le_dict, feature_cols, X_test, y_test, pred_y
+    return gbr, scaler, feature_cols, categorical_cols, numeric_cols
 
 
 # ============================================
@@ -85,7 +85,7 @@ def train_model(df):
 # ============================================
 
 df = load_data()
-model, scaler, le_dict, feature_cols, X_test, y_test, pred_y = train_model(df)
+model, scaler, feature_cols, categorical_cols, numeric_cols = train_model(df)
 
 
 # ============================================
@@ -100,6 +100,7 @@ page = st.sidebar.radio("Select a Page:", [
     "Reservoir Engineering Dashboard",
     "Reservoir Prediction"
 ])
+
 
 # ============================================
 # PAGE 1: ECONOMIC ANALYSIS
@@ -198,31 +199,21 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig, use_container_width=True)
 
 
+# ============================================
+# PAGE 3: RESERVOIR PREDICTION
+# ============================================
+
 elif page == "Reservoir Prediction":
     st.title("Predict New Well Production")
 
-    # ------------------------------
-    # HANDLE MISSING VALUES
-    # ------------------------------
-    numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns
-    categorical_cols = df[feature_cols].select_dtypes(exclude=[np.number]).columns
-
-    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-
-    for col in categorical_cols:
-        df[col] = df[col].fillna(df[col].mode()[0])
-
-    # ------------------------------
-    # USER INPUT SECTION
-    # ------------------------------
-    input_data = {}
-
     st.subheader("Enter Well Parameters")
+
+    input_data = {}
 
     for col in feature_cols:
 
         if col in numeric_cols:
-            # Numeric → slider
+            # Numeric slider
             min_val = float(df[col].min())
             max_val = float(df[col].max())
             mean_val = float(df[col].mean())
@@ -234,31 +225,40 @@ elif page == "Reservoir Prediction":
                 col,
                 min_value=min_val,
                 max_value=max_val,
-                value=mean_val,
-                step=(max_val - min_val) / 1000
+                value=mean_val
             )
 
         else:
-            # Categorical → dropdown
-            unique_vals = sorted(df[col].unique().tolist())
-            input_data[col] = st.selectbox(f"{col}", unique_vals)
+            # Categorical dropdown
+            input_data[col] = st.selectbox(
+                col,
+                sorted(df[col].astype(str).unique())
+            )
 
-    # ------------------------------
-    # PREDICT BUTTON
-    # ------------------------------
+    # --------------- PREDICT ------------------
     if st.button("Predict Production"):
-        input_df = pd.DataFrame([input_data], columns=feature_cols)
 
-        # Convert categorical values back to encoded
-        for col in categorical_cols:
-            input_df[col] = le.transform(input_df[col].astype(str))
+        input_df = pd.DataFrame([input_data])
 
-        # Scale numeric features
-        input_scaled = scaler.transform(input_df)
+        # One-hot encode categorical columns like training
+        input_df = pd.get_dummies(input_df, columns=categorical_cols)
+
+        # Add missing dummy columns (model expects them)
+        train_dummy_cols = model.feature_names_in_
+
+        for col in train_dummy_cols:
+            if col not in input_df.columns:
+                input_df[col] = 0
+
+        input_df = input_df[train_dummy_cols]
+
+        # Scale numeric features like training
+        input_df[input_df.select_dtypes(include=[np.number]).columns] = \
+            scaler.transform(input_df.select_dtypes(include=[np.number]))
 
         # Predict
-        pred_production = model.predict(input_scaled)[0]
+        pred = model.predict(input_df)[0]
 
-        st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
+        st.success(f"Predicted Production (MMcfge): {pred:.2f}")
 
-        st.session_state.predicted_production = pred_production
+        st.session_state.predicted_production = pred
