@@ -170,15 +170,20 @@ elif page == "Reservoir Engineering Dashboard":
     for col in features_to_plot:
         make_binned_lineplot(col, f"Production vs {col} (binned average)")
 
-    # Depth vs Production (scatter for detailed view)
-    st.subheader("Depth (feet) vs Production (MMcfge)")
-    fig = px.scatter(
-        df,
-        x="Depth (feet)",
-        y="Production (MMcfge)",
-        hover_data=hover_cols + ["Depth (feet)", "Production (MMcfge)"],
-        labels={"Production (MMcfge)": "Production (MMcfge)"}
+    # Depth vs Production (binned and scaled)
+    st.subheader("Depth (feet) vs Production (MMcfge) (binned average)")
+    df['Depth_bin'] = pd.cut(df["Depth (feet)"], bins=10)
+    binned_depth_df = df.groupby('Depth_bin', as_index=False)['Production (MMcfge)'].mean()
+    binned_depth_df['bin_center'] = binned_depth_df['Depth_bin'].apply(lambda x: x.mid)
+
+    fig = px.line(
+        binned_depth_df,
+        x='bin_center',
+        y='Production (MMcfge)',
+        labels={'bin_center': 'Depth (feet)', 'Production (MMcfge)': 'Production (MMcfge)'},
     )
+    fig.update_xaxes(dtick=(binned_depth_df['bin_center'].max() - binned_depth_df['bin_center'].min())/10)
+    fig.update_yaxes(title_text="Production (MMcfge)")
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -205,5 +210,3 @@ elif page == "Reservoir Prediction":
         pred = model.predict(input_df)[0]
         st.success(f"Predicted Production (MMcfge): {pred:.2f}")
         st.session_state.predicted_production = pred
-
-
