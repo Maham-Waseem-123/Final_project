@@ -117,22 +117,44 @@ if page == "Economic Analysis":
 # PAGE 2: Reservoir Engineering Dashboard
 # ---------------------------
 
-elif page == "Reservoir Engineering Dashboard":
+if page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     
+    # 1. Production vs Depth (Scatter + Line)
     st.subheader("Production vs Depth")
-    st.plotly_chart(px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', color='Porosity (decimal)'), use_container_width=True)
+    fig_depth = px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', 
+                           color='Porosity (decimal)',
+                           title="Production vs Depth",
+                           labels={'Depth (feet)':'Depth (ft)', 'Production (MMcfge)':'Production (MMcfge)'},
+                           hover_data=['ID'])
+    fig_depth.update_traces(mode='markers+lines')  # Scatter + Line to detect optimal depth
+    st.plotly_chart(fig_depth, use_container_width=True)
     
+    # 2. Production vs Porosity (Scatter + Regression)
     st.subheader("Production vs Porosity")
-    st.plotly_chart(px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', trendline="ols"), use_container_width=True)
+    fig_porosity = px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', 
+                              trendline="ols",
+                              title="Production vs Porosity",
+                              labels={'Porosity (decimal)':'Porosity', 'Production (MMcfge)':'Production (MMcfge)'},
+                              hover_data=['ID'])
+    st.plotly_chart(fig_porosity, use_container_width=True)
     
+    # 3. Stimulation Effectiveness (3D)
     st.subheader("Stimulation Effectiveness")
-    st.plotly_chart(px.scatter_3d(df,
-                        x='Proppant per foot (lbs)',
-                        y='Water per foot (bbls)',
-                        z='Production (MMcfge)',
-                        color='Additive per foot (bbls)',
-                        size='Gross Perforated Interval (ft)'), use_container_width=True)
+    fig_stim = px.scatter_3d(df,
+                             x='Proppant per foot (lbs)',
+                             y='Water per foot (bbls)',
+                             z='Production (MMcfge)',
+                             color='Additive per foot (bbls)',
+                             size='Gross Perforated Interval (ft)',
+                             title="Effect of Stimulation Parameters on Production",
+                             labels={'Proppant per foot (lbs)':'Proppant (lbs/ft)',
+                                     'Water per foot (bbls)':'Water (bbls/ft)',
+                                     'Production (MMcfge)':'Production (MMcfge)',
+                                     'Additive per foot (bbls)':'Additive (bbls/ft)',
+                                     'Gross Perforated Interval (ft)':'Perforated Interval (ft)'}
+                            )
+    st.plotly_chart(fig_stim, use_container_width=True)
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -165,3 +187,4 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production  # Save for economic analysis
+
