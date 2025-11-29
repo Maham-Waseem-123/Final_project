@@ -140,21 +140,35 @@ elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     hover_cols = ["ID"]
 
-    def make_lineplot(xcol, title):
+    features_to_plot = [
+        "Porosity (decimal)", 
+        "Resistivity (Ohm-m)", 
+        "Additive per foot (bbls)",
+        "Water per foot (bbls)", 
+        "Proppant per foot (lbs)"
+    ]
+
+    def make_binned_lineplot(xcol, title, bins=10):
+        # Bin the feature
+        df['bin'] = pd.cut(df[xcol], bins=bins)
+        # Compute average production per bin
+        binned_df = df.groupby('bin', as_index=False)['Production (MMcfge)'].mean()
+        binned_df['bin_center'] = binned_df['bin'].apply(lambda x: x.mid)
+        
+        # Plot
         fig = px.line(
-            df.sort_values(xcol),
-            x=xcol,
-            y="Production (MMcfge)",
-            hover_data=hover_cols + [xcol, "Production (MMcfge)"],
-            labels={"Production (MMcfge)": "Production (MMcfge)"}
+            binned_df,
+            x='bin_center',
+            y='Production (MMcfge)',
+            labels={'bin_center': xcol, 'Production (MMcfge)': 'Production (MMcfge)'}
         )
         st.subheader(title)
         st.plotly_chart(fig, use_container_width=True)
+    
+    for col in features_to_plot:
+        make_binned_lineplot(col, f"Production vs {col} (binned average)")
 
-    for col in ["Porosity (decimal)", "Resistivity (Ohm-m)", "Additive per foot (bbls)",
-                "Water per foot (bbls)", "Proppant per foot (lbs)", "Gross Perforated Interval (ft)"]:
-        make_lineplot(col, f"Production vs {col}")
-
+    # Depth vs Production (scatter for detailed view)
     st.subheader("Depth (feet) vs Production (MMcfge)")
     fig = px.scatter(
         df,
@@ -164,6 +178,7 @@ elif page == "Reservoir Engineering Dashboard":
         labels={"Production (MMcfge)": "Production (MMcfge)"}
     )
     st.plotly_chart(fig, use_container_width=True)
+
 
 # ============================================
 # PAGE 3: RESERVOIR PREDICTION
@@ -188,3 +203,4 @@ elif page == "Reservoir Prediction":
         pred = model.predict(input_df)[0]
         st.success(f"Predicted Production (MMcfge): {pred:.2f}")
         st.session_state.predicted_production = pred
+
