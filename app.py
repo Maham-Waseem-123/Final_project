@@ -112,7 +112,7 @@ if page == "Reservoir Engineering Dashboard":
     for col in features_to_plot:
         make_binned_lineplot(col, f"Production vs {col} (binned average)")
 
-    st.subheader("Depth (feet) vs Production (MMcfge) (binned average)")
+    st.subheader("Depth (feet) vs Production (MMcfge)")
 
     df['Depth_bin'] = pd.cut(df["Depth (feet)"], bins=10)
     binned_depth_df = df.groupby('Depth_bin', as_index=False)['Production (MMcfge)'].mean()
@@ -217,3 +217,4 @@ elif page == "Economic Analysis":
         st.write(f"OPEX: ${new_opex:,.2f}")
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
+
