@@ -68,9 +68,9 @@ if page == "Spatial Visualization":
 
     # Define production zones based on thresholds
     def categorize_production(production):
-        if production >= 500:   # high production
+        if production > 1500:   # high production
             return "🛢️ Productive"
-        elif production >= 200: # moderate production
+        elif production >= 1300: # moderate production
             return "🛢️ Moderate"
         else:                  # low production
             return "🛢️ Unproductive"
@@ -227,5 +227,6 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
 
