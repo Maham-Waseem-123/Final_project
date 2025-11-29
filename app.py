@@ -62,39 +62,52 @@ page = st.sidebar.radio("Select a Page:", [
 # ---------------------------
 # PAGE 1: Spatial Visualization
 # ---------------------------
-# ---------------------------
-# PAGE 1: Spatial Visualization
-# ---------------------------
 if page == "Spatial Visualization":
     st.title("Spatial Visualization")
-    st.subheader("Productive Wells Scatter Plot")
+    st.subheader("Production Zones Map")
 
-    # Define production zones
+    # Define production zones based on Production thresholds
     def categorize_production(production):
-        if production > 1500:   # high production
+        if production > 1500:      # Productive
             return "Productive"
-        elif production >= 1300: # moderate production
+        elif production >= 1300:    # Moderate
             return "Moderate"
-        else:                  # low production
+        else:                       # Unproductive
             return "Unproductive"
 
     df['Production Zone'] = df['Production (MMcfge)'].apply(categorize_production)
 
-    # Filter only productive wells
-    productive_df = df[df['Production Zone'] == "Productive"]
+    # Set color mapping for clusters
+    zone_colors = {
+        "Productive": "green",
+        "Moderate": "yellow",
+        "Unproductive": "red"
+    }
 
-    # Scatter plot: Depth vs Production
-    fig = px.scatter(
-        productive_df,
-        x="Depth (feet)",
-        y="Production (MMcfge)",
-        size="Gross Perforated Interval (ft)",  # optional: size based on interval
-        color="Porosity (decimal)",            # optional: color by porosity
-        hover_data=['ID', 'Proppant per foot (lbs)', 'Water per foot (bbls)'],
-        title="Productive Wells Scatter Plot"
+    import plotly.express as px
+
+    # Scatter mapbox plot
+    fig = px.scatter_mapbox(
+        df,
+        lat="Surface Latitude",
+        lon="Surface Longitude",
+        color="Production Zone",
+        color_discrete_map=zone_colors,
+        size="Production (MMcfge)",       # scale size by production
+        size_max=20,                      # max size of markers
+        hover_data=["ID", "Production (MMcfge)", "Depth (feet)", "Porosity (decimal)"],
+        zoom=5,
+        height=600
+    )
+
+    # Grey background map
+    fig.update_layout(
+        mapbox_style="carto-positron",     # clean grey-style map
+        margin={"r":0,"t":0,"l":0,"b":0}
     )
 
     st.plotly_chart(fig, use_container_width=True)
+
 
 
 # ---------------------------
@@ -208,6 +221,7 @@ elif page == "Reservoir Prediction":
     st.write(f"OPEX: ${opex:,.2f}")
     st.write(f"Revenue: ${revenue:,.2f}")
     st.write(f"Profit: ${profit:,.2f}")
+
 
 
 
