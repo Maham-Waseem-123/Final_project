@@ -198,39 +198,67 @@ elif page == "Reservoir Engineering Dashboard":
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ============================================
-# PAGE 3: RESERVOIR PREDICTION
-# ============================================
-
 elif page == "Reservoir Prediction":
     st.title("Predict New Well Production")
 
-    df[feature_cols] = df[feature_cols].fillna(df[feature_cols].mean())
+    # ------------------------------
+    # HANDLE MISSING VALUES
+    # ------------------------------
+    numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns
+    categorical_cols = df[feature_cols].select_dtypes(exclude=[np.number]).columns
 
-    user_inputs = {}
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+
+    for col in categorical_cols:
+        df[col] = df[col].fillna(df[col].mode()[0])
+
+    # ------------------------------
+    # USER INPUT SECTION
+    # ------------------------------
+    input_data = {}
+
+    st.subheader("Enter Well Parameters")
 
     for col in feature_cols:
-        min_val = float(df[col].min())
-        max_val = float(df[col].max())
-        mean_val = float(df[col].mean())
 
-        user_inputs[col] = st.slider(
-            col, min_value=min_val, max_value=max_val, value=mean_val,
-            step=(max_val - min_val) / 1000
-        )
+        if col in numeric_cols:
+            # Numeric → slider
+            min_val = float(df[col].min())
+            max_val = float(df[col].max())
+            mean_val = float(df[col].mean())
 
+            if min_val == max_val:
+                max_val += 1.0
+
+            input_data[col] = st.slider(
+                col,
+                min_value=min_val,
+                max_value=max_val,
+                value=mean_val,
+                step=(max_val - min_val) / 1000
+            )
+
+        else:
+            # Categorical → dropdown
+            unique_vals = sorted(df[col].unique().tolist())
+            input_data[col] = st.selectbox(f"{col}", unique_vals)
+
+    # ------------------------------
+    # PREDICT BUTTON
+    # ------------------------------
     if st.button("Predict Production"):
-        input_df = pd.DataFrame([user_inputs], columns=feature_cols)
+        input_df = pd.DataFrame([input_data], columns=feature_cols)
 
-        # ---- Label Encode user input ----
-        for col, le in le_dict.items():
-            input_df[col] = input_df[col].astype(str)
-            input_df[col] = le.transform(input_df[col])
+        # Convert categorical values back to encoded
+        for col in categorical_cols:
+            input_df[col] = le.transform(input_df[col].astype(str))
 
-        # ---- Scale ----
+        # Scale numeric features
         input_scaled = scaler.transform(input_df)
 
-        pred = model.predict(input_scaled)[0]
-        st.success(f"Predicted Production (MMcfge): {pred:.2f}")
+        # Predict
+        pred_production = model.predict(input_scaled)[0]
 
-        st.session_state.predicted_production = pred
+        st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
+
+        st.session_state.predicted_production = pred_production
