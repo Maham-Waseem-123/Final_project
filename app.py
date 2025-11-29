@@ -1,14 +1,19 @@
+# ============================================
+# STREAMLIT RESERVOIR ENGINEERING APP
+# ============================================
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+import re
+
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 import plotly.express as px
 
-
 # ============================================
-# 1. LOAD DATA
+# 1. LOAD DATA WITH INTERVAL CONVERSION
 # ============================================
 
 @st.cache_data
@@ -19,11 +24,44 @@ def load_data():
     # Clean column names
     df.columns = df.columns.str.strip().str.replace("\n", "").str.replace("\xa0", "")
 
+    # Convert interval columns to midpoints
+    def interval_to_midpoint(interval_str):
+        if pd.isna(interval_str):
+            return None
+        match = re.match(r"[\(\[]([\d\.]+),\s*([\d\.]+)[\)\]]", str(interval_str))
+        if match:
+            low, high = map(float, match.groups())
+            return (low + high) / 2
+        else:
+            try:
+                return float(interval_str)
+            except:
+                return None
+
+    interval_cols = [
+        "Depth (feet)", "Thickness (feet)", "Normalized Gamma Ray (API)",
+        "Density (g/cm3)", "Porosity (decimal)", "Resistivity (Ohm-m)"
+    ]
+
+    for col in interval_cols:
+        df[col] = df[col].apply(interval_to_midpoint)
+
+    # Ensure numeric columns for calculations
+    numeric_cols_for_calc = [
+        "Depth (feet)", "Gross Perforated Interval (ft)",
+        "Proppant per foot (lbs)", "Water per foot (bbls)",
+        "Additive per foot (bbls)"
+    ]
+
+    for col in numeric_cols_for_calc:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(df[col].mean())
+
     return df
 
+df = load_data()
 
 # ============================================
-# 2. TRAIN MODEL — ONLY NUMERIC FEATURES
+# 2. TRAIN MODEL — LABEL ENCODING
 # ============================================
 
 @st.cache_resource
@@ -32,40 +70,34 @@ def train_model(df):
     target = "Production (MMcfge)"
     feature_cols = df.drop(columns=["ID", target]).columns.tolist()
 
-    # Auto-detect numeric & categorical columns
     numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df[feature_cols].select_dtypes(exclude=[np.number]).columns.tolist()
 
-    # Fill missing values
+    # Fill missing
     df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    df[categorical_cols] = df[categorical_cols].fillna(df[categorical_cols].mode().iloc[0]).astype(str)
 
+    # Label Encode categorical columns
+    encoders = {}
     for col in categorical_cols:
-        df[col] = df[col].fillna(df[col].mode()[0])
-        df[col] = df[col].astype(str)   # keep as string
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col].astype(str))
+        encoders[col] = le
 
-    # --------------------------
-    # Training dataset
-    # --------------------------
-    X = df[feature_cols]
+    X = df[feature_cols].copy()
     y = df[target]
-
-    # Convert categorical columns using one-hot encoding
-    X = pd.get_dummies(X, columns=categorical_cols)
 
     # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
 
-    # Scale numeric columns only
+    # Scale numeric columns
     scaler = StandardScaler()
-    X_train[X_train.select_dtypes(include=[np.number]).columns] = \
-        scaler.fit_transform(X_train.select_dtypes(include=[np.number]))
+    X_train[numeric_cols] = scaler.fit_transform(X_train[numeric_cols])
+    X_test[numeric_cols] = scaler.transform(X_test[numeric_cols])
 
-    X_test[X_test.select_dtypes(include=[np.number]).columns] = \
-        scaler.transform(X_test.select_dtypes(include=[np.number]))
-
-    # Train model
+    # Train GBRT
     gbr = GradientBoostingRegressor(
         loss="absolute_error",
         learning_rate=0.1,
@@ -74,22 +106,14 @@ def train_model(df):
         random_state=42,
         max_features=5
     )
-
     gbr.fit(X_train, y_train)
 
-    return gbr, scaler, feature_cols, categorical_cols, numeric_cols
+    return gbr, scaler, feature_cols, categorical_cols, numeric_cols, encoders
 
-
-# ============================================
-# 3. LOAD + TRAIN
-# ============================================
-
-df = load_data()
-model, scaler, feature_cols, categorical_cols, numeric_cols = train_model(df)
-
+model, scaler, feature_cols, categorical_cols, numeric_cols, encoders = train_model(df)
 
 # ============================================
-# 4. STREAMLIT APP LAYOUT
+# 3. STREAMLIT APP LAYOUT
 # ============================================
 
 st.set_page_config(page_title="Reservoir Engineering App", layout="wide")
@@ -101,12 +125,12 @@ page = st.sidebar.radio("Select a Page:", [
     "Reservoir Prediction"
 ])
 
-
 # ============================================
 # PAGE 1: ECONOMIC ANALYSIS
 # ============================================
 
 if page == "Economic Analysis":
+
     st.title("Economic Analysis")
 
     st.subheader("Adjust Cost Parameters")
@@ -158,14 +182,13 @@ if page == "Economic Analysis":
         st.write(f"Revenue: ${new_revenue:,.2f}")
         st.write(f"Profit: ${new_profit:,.2f}")
 
-
 # ============================================
 # PAGE 2: RESERVOIR ENGINEERING DASHBOARD
 # ============================================
 
 elif page == "Reservoir Engineering Dashboard":
-    st.title("Reservoir Engineering Dashboard")
 
+    st.title("Reservoir Engineering Dashboard")
     df["Log_Production"] = np.log1p(df["Production (MMcfge)"])
     hover_cols = ["ID"]
 
@@ -187,7 +210,6 @@ elif page == "Reservoir Engineering Dashboard":
     make_lineplot("Proppant per foot (lbs)", "EUR vs Proppant per foot")
     make_lineplot("Gross Perforated Interval (ft)", "EUR vs Gross Perforated Interval")
 
-    # Scatter plot for depth
     st.subheader("Depth (feet) vs Production (MMcfge)")
     fig = px.scatter(
         df,
@@ -198,67 +220,44 @@ elif page == "Reservoir Engineering Dashboard":
     )
     st.plotly_chart(fig, use_container_width=True)
 
-
 # ============================================
 # PAGE 3: RESERVOIR PREDICTION
 # ============================================
 
 elif page == "Reservoir Prediction":
-    st.title("Predict New Well Production")
 
+    st.title("Predict New Well Production")
     st.subheader("Enter Well Parameters")
 
     input_data = {}
-
     for col in feature_cols:
-
         if col in numeric_cols:
-            # Numeric slider
-            min_val = float(df[col].min())
-            max_val = float(df[col].max())
+            min_val, max_val = float(df[col].min()), float(df[col].max())
             mean_val = float(df[col].mean())
-
             if min_val == max_val:
                 max_val += 1.0
-
-            input_data[col] = st.slider(
-                col,
-                min_value=min_val,
-                max_value=max_val,
-                value=mean_val
-            )
-
+            input_data[col] = st.slider(col, min_val, max_val, mean_val)
         else:
-            # Categorical dropdown
-            input_data[col] = st.selectbox(
-                col,
-                sorted(df[col].astype(str).unique())
-            )
+            input_data[col] = st.selectbox(col, sorted(df[col].astype(str).unique()))
 
-    # --------------- PREDICT ------------------
     if st.button("Predict Production"):
 
         input_df = pd.DataFrame([input_data])
 
-        # One-hot encode categorical columns like training
-        input_df = pd.get_dummies(input_df, columns=categorical_cols)
+        # Encode categorical features
+        for col in categorical_cols:
+            le = encoders[col]
 
-        # Add missing dummy columns (model expects them)
-        train_dummy_cols = model.feature_names_in_
+            # If user selects a value not seen in training
+            if input_df[col].iloc[0] not in le.classes_:
+                le.classes_ = np.append(le.classes_, input_df[col].iloc[0])
 
-        for col in train_dummy_cols:
-            if col not in input_df.columns:
-                input_df[col] = 0
+            input_df[col] = le.transform(input_df[col].astype(str))
 
-        input_df = input_df[train_dummy_cols]
-
-        # Scale numeric features like training
-        input_df[input_df.select_dtypes(include=[np.number]).columns] = \
-            scaler.transform(input_df.select_dtypes(include=[np.number]))
+        # Scale numeric
+        input_df[numeric_cols] = scaler.transform(input_df[numeric_cols])
 
         # Predict
         pred = model.predict(input_df)[0]
-
         st.success(f"Predicted Production (MMcfge): {pred:.2f}")
-
         st.session_state.predicted_production = pred
