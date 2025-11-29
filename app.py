@@ -122,39 +122,72 @@ if page == "Economic Analysis":
 
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
-    
+
+    # ---------------------------
+    # BAR CHART: EUR vs Depth
+    # ---------------------------
     st.subheader("EUR (Production) vs Depth")
-    fig_depth = px.scatter(
-        df, x='Depth (feet)', y='Production (MMcfge)',
-        trendline='ols',
+
+    # Sort for readability
+    df_sorted = df.sort_values("Depth (feet)")
+
+    fig_depth = px.bar(
+        df_sorted,
+        x="Depth (feet)",
+        y="Production (MMcfge)",
         labels={'Depth (feet)': 'Depth (feet)', 'Production (MMcfge)': 'EUR (MMcfge)'},
-        color_discrete_sequence=['blue']
     )
     st.plotly_chart(fig_depth, use_container_width=True)
-    
+
+    # ---------------------------
+    # BAR CHART: EUR vs Formation Properties
+    # ---------------------------
     st.subheader("EUR vs Formation Properties")
-    formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
-                          'Porosity (decimal)', 'Resistivity (Ohm-m)']
+
+    formation_features = [
+        'Thickness (feet)', 
+        'Normalized Gamma Ray (API)', 
+        'Density (g/cm3)',
+        'Porosity (decimal)', 
+        'Resistivity (Ohm-m)'
+    ]
+
     for feature in formation_features:
-        fig = px.scatter(
-            df, x=feature, y='Production (MMcfge)',
-            trendline='ols',
+        st.write(f"EUR vs {feature}")
+        df_sorted = df.sort_values(feature)
+
+        fig = px.bar(
+            df_sorted,
+            x=feature,
+            y="Production (MMcfge)",
             labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
-            color_discrete_sequence=['green']
         )
         st.plotly_chart(fig, use_container_width=True)
-    
+
+    # ---------------------------
+    # BAR CHART: EUR vs Stimulation Parameters
+    # ---------------------------
     st.subheader("EUR vs Stimulation Parameters")
-    stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
-                     'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
+
+    stim_features = [
+        'Additive per foot (bbls)',
+        'Water per foot (bbls)',
+        'Proppant per foot (lbs)',
+        'Gross Perforated Interval (ft)'
+    ]
+
     for feature in stim_features:
-        fig = px.scatter(
-            df, x=feature, y='Production (MMcfge)',
-            trendline='ols',
+        st.write(f"EUR vs {feature}")
+        df_sorted = df.sort_values(feature)
+
+        fig = px.bar(
+            df_sorted,
+            x=feature,
+            y="Production (MMcfge)",
             labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
-            color_discrete_sequence=['orange']
         )
         st.plotly_chart(fig, use_container_width=True)
+
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -186,3 +219,4 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
