@@ -140,7 +140,7 @@ elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     hover_cols = ["ID"]
 
-    # Features to plot (excluding Gross Perforated Interval and Resistivity)
+    # Features to plot (excluding GPI and Resistivity)
     features_to_plot = [
         "Porosity (decimal)", 
         "Additive per foot (bbls)",
@@ -148,33 +148,47 @@ elif page == "Reservoir Engineering Dashboard":
         "Proppant per foot (lbs)"
     ]
 
+    # ------------- FIXED BINNED LINE PLOT FUNCTION -------------
     def make_binned_lineplot(xcol, title, bins=10):
         # Bin the feature
         df['bin'] = pd.cut(df[xcol], bins=bins)
-        # Compute average production per bin
+
+        # Calculate binned production averages
         binned_df = df.groupby('bin', as_index=False)['Production (MMcfge)'].mean()
         binned_df['bin_center'] = binned_df['bin'].apply(lambda x: x.mid)
-        
-        # Plot with proper scaling
+
+        # Sort so the line plot starts at the left of x-axis
+        binned_df = binned_df.sort_values("bin_center")
+
+        # Plot
         fig = px.line(
             binned_df,
             x='bin_center',
             y='Production (MMcfge)',
             labels={'bin_center': xcol, 'Production (MMcfge)': 'Production (MMcfge)'},
         )
+
+        # Nice spacing
         fig.update_xaxes(dtick=(binned_df['bin_center'].max() - binned_df['bin_center'].min())/bins)
         fig.update_yaxes(title_text="Production (MMcfge)")
+
         st.subheader(title)
         st.plotly_chart(fig, use_container_width=True)
-    
+
+    # -------------------------------------------------------------
+
     for col in features_to_plot:
         make_binned_lineplot(col, f"Production vs {col} (binned average)")
 
-    # Depth vs Production (binned and scaled)
+    # ------------- DEPTH VS PRODUCTION (FIXED) -------------------
     st.subheader("Depth (feet) vs Production (MMcfge) (binned average)")
+
     df['Depth_bin'] = pd.cut(df["Depth (feet)"], bins=10)
     binned_depth_df = df.groupby('Depth_bin', as_index=False)['Production (MMcfge)'].mean()
     binned_depth_df['bin_center'] = binned_depth_df['Depth_bin'].apply(lambda x: x.mid)
+
+    # Sort to prevent jump / late start
+    binned_depth_df = binned_depth_df.sort_values("bin_center")
 
     fig = px.line(
         binned_depth_df,
@@ -182,8 +196,10 @@ elif page == "Reservoir Engineering Dashboard":
         y='Production (MMcfge)',
         labels={'bin_center': 'Depth (feet)', 'Production (MMcfge)': 'Production (MMcfge)'},
     )
+
     fig.update_xaxes(dtick=(binned_depth_df['bin_center'].max() - binned_depth_df['bin_center'].min())/10)
     fig.update_yaxes(title_text="Production (MMcfge)")
+
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -210,3 +226,4 @@ elif page == "Reservoir Prediction":
         pred = model.predict(input_df)[0]
         st.success(f"Predicted Production (MMcfge): {pred:.2f}")
         st.session_state.predicted_production = pred
+
