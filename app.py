@@ -197,7 +197,7 @@ elif page == "Reservoir Engineering Dashboard":
 
     # 7️⃣ Depth vs Production
     st.subheader("Depth (feet) vs Production (MMcfge)")
-    fig_depth_prod = px.line(
+    fig_depth_prod = px.scatter(
         df.sort_values("Depth (feet)"),
         x="Depth (feet)",
         y="Log_Production",
@@ -237,6 +237,7 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
 
 
