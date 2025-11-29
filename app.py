@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
+import plotly.express as px
 
 # ---------------------------
 # BACKEND: Data & Model Training
@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 def load_data():
     url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
     combined_data = pd.read_csv(url)
+    combined_data.columns = combined_data.columns.str.strip().str.replace('\n','').str.replace('\xa0','')
     return combined_data
 
 @st.cache_resource
@@ -41,55 +42,6 @@ def train_model(df):
     pred_y = gbr.predict(X_test_scaled)
     
     return gbr, scaler, feature_cols, X_test, y_test, pred_y
-
-# ---------------------------
-# CACHE DASHBOARD PLOTS
-# ---------------------------
-
-@st.cache_data
-def generate_dashboard_charts(df):
-    charts = {}
-
-    # EUR vs Depth
-    fig, ax = plt.subplots()
-    ax.scatter(df['Depth (feet)'], df['Production (MMcfge)'], color='blue', label='Data')
-    trend = np.polyfit(df['Depth (feet)'], df['Production (MMcfge)'], 1)
-    ax.plot(df['Depth (feet)'], trend[0]*df['Depth (feet)'] + trend[1], color='red', label='Trend Line')
-    ax.set_xlabel("Depth (feet)")
-    ax.set_ylabel("EUR (MMcfge)")
-    ax.set_title("EUR vs Depth")
-    ax.legend()
-    charts['EUR_vs_Depth'] = fig
-
-    # EUR vs Formation Properties
-    formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
-                          'Porosity (decimal)', 'Resistivity (Ohm-m)']
-    charts['EUR_vs_Formation'] = []
-    for feature in formation_features:
-        fig, ax = plt.subplots()
-        ax.bar(df[feature], df['Production (MMcfge)'], color='skyblue')
-        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
-        ax.plot(df[feature], trend[0]*df[feature]+trend[1], color='red', linewidth=2)
-        ax.set_xlabel(feature)
-        ax.set_ylabel("EUR (MMcfge)")
-        ax.set_title(f"EUR vs {feature}")
-        charts['EUR_vs_Formation'].append(fig)
-
-    # EUR vs Stimulation Parameters
-    stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
-                     'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
-    charts['EUR_vs_Stimulation'] = []
-    for feature in stim_features:
-        fig, ax = plt.subplots()
-        ax.bar(df[feature], df['Production (MMcfge)'], color='lightgreen')
-        trend = np.polyfit(df[feature], df['Production (MMcfge)'], 1)
-        ax.plot(df[feature], trend[0]*df[feature]+trend[1], color='red', linewidth=2)
-        ax.set_xlabel(feature)
-        ax.set_ylabel("EUR (MMcfge)")
-        ax.set_title(f"EUR vs {feature}")
-        charts['EUR_vs_Stimulation'].append(fig)
-
-    return charts
 
 # ---------------------------
 # LOAD DATA AND TRAIN MODEL
@@ -171,24 +123,38 @@ if page == "Economic Analysis":
 elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     
-    df.columns = df.columns.str.strip().str.replace('\n','').str.replace('\xa0','')
-    
-    if 'Surface Latitude' in df.columns and 'Surface Longitude' in df.columns:
-        df['Surface_Coords'] = df['Surface Latitude'].astype(str) + ", " + df['Surface Longitude'].astype(str)
-    
-    # Generate and cache plots
-    charts = generate_dashboard_charts(df)
-    
     st.subheader("EUR (Production) vs Depth")
-    st.pyplot(charts['EUR_vs_Depth'])
-
+    fig_depth = px.scatter(
+        df, x='Depth (feet)', y='Production (MMcfge)',
+        trendline='ols',
+        labels={'Depth (feet)': 'Depth (feet)', 'Production (MMcfge)': 'EUR (MMcfge)'},
+        color_discrete_sequence=['blue']
+    )
+    st.plotly_chart(fig_depth, use_container_width=True)
+    
     st.subheader("EUR vs Formation Properties")
-    for fig in charts['EUR_vs_Formation']:
-        st.pyplot(fig)
-
+    formation_features = ['Thickness (feet)', 'Normalized Gamma Ray (API)', 'Density (g/cm3)',
+                          'Porosity (decimal)', 'Resistivity (Ohm-m)']
+    for feature in formation_features:
+        fig = px.scatter(
+            df, x=feature, y='Production (MMcfge)',
+            trendline='ols',
+            labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
+            color_discrete_sequence=['green']
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
     st.subheader("EUR vs Stimulation Parameters")
-    for fig in charts['EUR_vs_Stimulation']:
-        st.pyplot(fig)
+    stim_features = ['Additive per foot (bbls)', 'Water per foot (bbls)',
+                     'Proppant per foot (lbs)', 'Gross Perforated Interval (ft)']
+    for feature in stim_features:
+        fig = px.scatter(
+            df, x=feature, y='Production (MMcfge)',
+            trendline='ols',
+            labels={feature: feature, 'Production (MMcfge)': 'EUR (MMcfge)'},
+            color_discrete_sequence=['orange']
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
