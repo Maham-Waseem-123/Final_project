@@ -117,119 +117,116 @@ if page == "Economic Analysis":
         st.write(f"Profit: ${new_profit:,.2f}")
 
 # ---------------------------
-# PAGE 2: Reservoir Engineering Dashboard
-# ---------------------------
 
-# ---------------------------
-# PAGE 2: Reservoir Engineering Dashboard
+# PAGE 2: Reservoir Engineering Dashboard (with log-transformed production)
+
 # ---------------------------
 
 elif page == "Reservoir Engineering Dashboard":
-    st.title("Reservoir Engineering Dashboard")
+st.title("Reservoir Engineering Dashboard")
 
-    hover_cols = ["ID", "Surface Latitude", "Surface Longitude"]
+```
+hover_cols = ["ID", "Surface Latitude", "Surface Longitude"]
 
-    # ------------------------------------------------------
-    # 1️⃣ EUR vs Porosity (decimal)
-    # ------------------------------------------------------
-    st.subheader("EUR vs Porosity")
-    fig_porosity = px.line(
-        df.sort_values("Porosity (decimal)"),
-        x="Porosity (decimal)",
-        y="Production (MMcfge)",
-        hover_data=hover_cols + ["Porosity (decimal)"],
-        labels={"Production (MMcfge)": "EUR (MMcfge)"},
-    )
-    st.plotly_chart(fig_porosity, use_container_width=True)
+# Add log-transformed production column
+df['Log_Production'] = np.log1p(df['Production (MMcfge)'])  # handles zero values safely
 
-    # ------------------------------------------------------
-    # 2️⃣ EUR vs Resistivity
-    # ------------------------------------------------------
-    st.subheader("EUR vs Resistivity (Ohm-m)")
-    fig_resist = px.line(
-        df.sort_values("Resistivity (Ohm-m)"),
-        x="Resistivity (Ohm-m)",
-        y="Production (MMcfge)",
-        hover_data=hover_cols + ["Resistivity (Ohm-m)"],
-        labels={"Production (MMcfge)": "EUR (MMcfge)"},
-    )
-    st.plotly_chart(fig_resist, use_container_width=True)
+# ------------------------------------------------------
+# 1️⃣ EUR vs Porosity (decimal)
+# ------------------------------------------------------
+st.subheader("EUR vs Porosity")
+fig_porosity = px.line(
+    df.sort_values("Porosity (decimal)"),
+    x="Porosity (decimal)",
+    y="Log_Production",
+    hover_data=hover_cols + ["Porosity (decimal)", "Production (MMcfge)"],
+    labels={"Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_porosity, use_container_width=True)
 
-    # ------------------------------------------------------
-    # 3️⃣ EUR vs Additive per foot
-    # ------------------------------------------------------
-    st.subheader("EUR vs Additive per foot (bbls)")
-    fig_additive = px.line(
-        df.sort_values("Additive per foot (bbls)"),
-        x="Additive per foot (bbls)",
-        y="Production (MMcfge)",
-        markers=False,
-        hover_data=hover_cols + ["Additive per foot (bbls)"],
-        labels={"Production (MMcfge)": "EUR (MMcfge)"},
-    )
-    st.plotly_chart(fig_additive, use_container_width=True)
+# ------------------------------------------------------
+# 2️⃣ EUR vs Resistivity
+# ------------------------------------------------------
+st.subheader("EUR vs Resistivity (Ohm-m)")
+fig_resist = px.line(
+    df.sort_values("Resistivity (Ohm-m)"),
+    x="Resistivity (Ohm-m)",
+    y="Log_Production",
+    hover_data=hover_cols + ["Resistivity (Ohm-m)", "Production (MMcfge)"],
+    labels={"Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_resist, use_container_width=True)
 
-    # ------------------------------------------------------
-    # 4️⃣ EUR vs Water per foot
-    # ------------------------------------------------------
-    st.subheader("EUR vs Water per foot (bbls)")
-    fig_water = px.line(
-        df.sort_values("Water per foot (bbls)"),
-        x="Water per foot (bbls)",
-        y="Production (MMcfge)",
-        markers=False,
-        hover_data=hover_cols + ["Water per foot (bbls)"],
-        labels={"Production (MMcfge)": "EUR (MMcfge)"},
-    )
-    st.plotly_chart(fig_water, use_container_width=True)
+# ------------------------------------------------------
+# 3️⃣ EUR vs Additive per foot
+# ------------------------------------------------------
+st.subheader("EUR vs Additive per foot (bbls)")
+fig_additive = px.line(
+    df.sort_values("Additive per foot (bbls)"),
+    x="Additive per foot (bbls)",
+    y="Log_Production",
+    markers=False,
+    hover_data=hover_cols + ["Additive per foot (bbls)", "Production (MMcfge)"],
+    labels={"Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_additive, use_container_width=True)
 
-    # ------------------------------------------------------
-    # 5️⃣ EUR vs Proppant per foot
-    # ------------------------------------------------------
-    st.subheader("EUR vs Proppant per foot (lbs)")
-    fig_prop = px.line(
-        df.sort_values("Proppant per foot (lbs)"),
-        x="Proppant per foot (lbs)",
-        y="Production (MMcfge)",
-        markers=False,
-        hover_data=hover_cols + ["Proppant per foot (lbs)"],
-        labels={"Production (MMcfge)": "EUR (MMcfge)"},
-    )
-    st.plotly_chart(fig_prop, use_container_width=True)
+# ------------------------------------------------------
+# 4️⃣ EUR vs Water per foot
+# ------------------------------------------------------
+st.subheader("EUR vs Water per foot (bbls)")
+fig_water = px.line(
+    df.sort_values("Water per foot (bbls)"),
+    x="Water per foot (bbls)",
+    y="Log_Production",
+    markers=False,
+    hover_data=hover_cols + ["Water per foot (bbls)", "Production (MMcfge)"],
+    labels={"Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_water, use_container_width=True)
 
-    # ------------------------------------------------------
-    # 6️⃣ EUR vs Gross Perforated Interval
-    # ------------------------------------------------------
-    st.subheader("EUR vs Gross Perforated Interval (ft)")
-    fig_gpi = px.line(
-        df.sort_values("Gross Perforated Interval (ft)"),
-        x="Gross Perforated Interval (ft)",
-        y="Production (MMcfge)",
-        markers=False,
-        hover_data=hover_cols + ["Gross Perforated Interval (ft)"],
-        labels={"Production (MMcfge)": "EUR (MMcfge)"},
-    )
-    st.plotly_chart(fig_gpi, use_container_width=True)
+# ------------------------------------------------------
+# 5️⃣ EUR vs Proppant per foot
+# ------------------------------------------------------
+st.subheader("EUR vs Proppant per foot (lbs)")
+fig_prop = px.line(
+    df.sort_values("Proppant per foot (lbs)"),
+    x="Proppant per foot (lbs)",
+    y="Log_Production",
+    markers=False,
+    hover_data=hover_cols + ["Proppant per foot (lbs)", "Production (MMcfge)"],
+    labels={"Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_prop, use_container_width=True)
 
-    # ------------------------------------------------------
-    # NEW 📌 Depth (feet) vs Production (MMcfge)
-    # ------------------------------------------------------
-    st.subheader("Depth (feet) vs Production (MMcfge)")
-    fig_depth_prod = px.line(
-        df.sort_values("Depth (feet)"),
-        x="Depth (feet)",
-        y="Production (MMcfge)",
-        markers=False,
-        hover_data=[
-            "ID", "Surface Latitude", "Surface Longitude",
-            "Depth (feet)", "Production (MMcfge)"
-        ],
-        labels={
-            "Depth (feet)": "Depth (feet)",
-            "Production (MMcfge)": "EUR (MMcfge)"
-        },
-    )
-    st.plotly_chart(fig_depth_prod, use_container_width=True)
+# ------------------------------------------------------
+# 6️⃣ EUR vs Gross Perforated Interval
+# ------------------------------------------------------
+st.subheader("EUR vs Gross Perforated Interval (ft)")
+fig_gpi = px.line(
+    df.sort_values("Gross Perforated Interval (ft)"),
+    x="Gross Perforated Interval (ft)",
+    y="Log_Production",
+    markers=False,
+    hover_data=hover_cols + ["Gross Perforated Interval (ft)", "Production (MMcfge)"],
+    labels={"Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_gpi, use_container_width=True)
+
+# ------------------------------------------------------
+# 7️⃣ Depth (feet) vs Production (MMcfge)
+# ------------------------------------------------------
+st.subheader("Depth (feet) vs Production (MMcfge)")
+fig_depth_prod = px.line(
+    df.sort_values("Depth (feet)"),
+    x="Depth (feet)",
+    y="Log_Production",
+    markers=False,
+    hover_data=hover_cols + ["Depth (feet)", "Production (MMcfge)"],
+    labels={"Depth (feet)": "Depth (feet)", "Log_Production": "Log(EUR + 1)"},
+)
+st.plotly_chart(fig_depth_prod, use_container_width=True)
+```
 
 
 
@@ -263,6 +260,7 @@ elif page == "Reservoir Prediction":
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
         st.session_state.predicted_production = pred_production
+
 
 
 
