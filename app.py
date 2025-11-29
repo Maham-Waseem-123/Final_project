@@ -7,31 +7,26 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 
-# ------------------------------------------------
-# MUST BE FIRST
-# ------------------------------------------------
-st.set_page_config(page_title="Reservoir Analysis App", layout="wide")
+# ---------------------------
+# BACKEND: Data & Model Training
+# ---------------------------
 
-# ------------------------------------------------
-# Backend: Load Data & Train Model
-# ------------------------------------------------
 @st.cache_data
-def load_and_train():
-    csv_url = "https://raw.githubusercontent.com/Maham-Waseem-123/Final_project/main/Shale_Test.csv"
-    df = pd.read_csv(csv_url)
+def load_data():
+    combined_data = pd.read_csv("https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/Shale_test.csv")
+    return combined_data
 
-    # Features and target
+@st.cache_resource
+def train_model(df):
     X = df.drop(columns=['ID', 'Production (MMcfge)'])
     y = df['Production (MMcfge)']
-
-    # Split
-    X_train, X_test, _, _ = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Scaling
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-
-    # Model
+    X_test_scaled = scaler.transform(X_test)
+    
     gbr = GradientBoostingRegressor(
         loss='absolute_error',
         learning_rate=0.1,
@@ -40,203 +35,170 @@ def load_and_train():
         random_state=42,
         max_features=5
     )
+    gbr.fit(X_train_scaled, y_train)
+    
+    pred_y = gbr.predict(X_test_scaled)
+    
+    return gbr, scaler, X_train.columns, X_test, y_test, pred_y
 
-    gbr.fit(X_train_scaled, y)
+df = load_data()
+model, scaler, feature_cols, X_test, y_test, pred_y = train_model(df)
 
-    return df, X, y, scaler, gbr
+# ---------------------------
+# APPLICATION LAYOUT
+# ---------------------------
+st.set_page_config(page_title="Reservoir Engineering App", layout="wide")
 
+st.sidebar.title("Pages")
+page = st.sidebar.radio("Select a Page:", [
+    "Spatial Visualization",
+    "Economic Analysis",
+    "Reservoir Engineering Dashboard",
+    "Reservoir Prediction"
+])
 
-df, X, y, scaler, gbr = load_and_train()
-
-# ------------------------------------------------
-# Title
-# ------------------------------------------------
-st.title("Reservoir Analysis & Prediction App")
-
-# ------------------------------------------------
-# Sidebar Parameters
-# ------------------------------------------------
-st.sidebar.subheader("Global Economic Parameters")
-
-base_drilling_cost = st.sidebar.number_input("Base Drilling Cost ($/ft)", 500, 5000, 1000)
-base_completion_cost = st.sidebar.number_input("Base Completion Cost ($/ft)", 100, 2000, 500)
-proppant_cost_per_lb = st.sidebar.number_input("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
-water_cost_per_bbl = st.sidebar.number_input("Water Cost ($/bbl)", 0.1, 10.0, 1.5)
-additive_cost_per_bbl = st.sidebar.number_input("Additive Cost ($/bbl)", 0.1, 10.0, 2.0)
-base_maintenance_cost = st.sidebar.number_input("Maintenance Cost ($/yr)", 10000, 100000, 30000)
-base_pump_cost = st.sidebar.number_input("Pump/Energy Cost ($/yr)", 10000, 100000, 20000)
-gas_price = st.sidebar.number_input("Gas Price ($/MMcfge)", 1, 100, 5)
-
-# ------------------------------------------------
-# Page Navigation
-# ------------------------------------------------
-pages = ["Spatial Visualization", "Economic Analysis", "Reservoir Engineering Dashboard", "Reservoir Prediction"]
-page = st.sidebar.radio("Select Page", pages)
-
-# ------------------------------------------------
-# Page 1: Spatial Visualization
-# ------------------------------------------------
+# ---------------------------
+# PAGE 1: Spatial Visualization
+# ---------------------------
 if page == "Spatial Visualization":
-    st.header("Spatial Visualization of Wells & Production Zones")
-
-    option = st.radio("Choose Visualization", ["Map Visualization", "Cluster Analysis / Zonation"])
-
-    if option == "Map Visualization":
-
+    st.title("Spatial Visualization")
+    st.subheader("Production Zones")
+    
+    map_option = st.radio("Select Visualization Type:", ["Map Visualization", "Cluster/Zonation"])
+    
+    if map_option == "Map Visualization":
         fig = px.scatter_mapbox(
-            df,
-            lat="Surface Latitude",
-            lon="Surface Longitude",
+            df, lat="Surface Latitude", lon="Surface Longitude",
             color="Production (MMcfge)",
-            color_continuous_scale="Viridis",
-            size="Production (MMcfge)",
-            size_max=15,
+            color_continuous_scale=["green","yellow","red"],
+            size="Production (MMcfge)", size_max=15,
             zoom=5
         )
         fig.update_layout(mapbox_style="open-street-map")
         st.plotly_chart(fig, use_container_width=True)
-
+    
     else:
-        n_clusters = st.slider("Select number of clusters", 2, 10, 4)
-
-        df_cluster = df.copy()
-        cluster_cols = [
-            'Depth (feet)',
-            'Thickness (feet)',
-            'Porosity (decimal)',
-            'Production (MMcfge)'
-        ]
-
-        # FIX: required n_init
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-        df_cluster['Cluster'] = kmeans.fit_predict(df_cluster[cluster_cols])
-
+        st.subheader("KMeans Clustering for Zonation")
+        n_clusters = st.slider("Select Number of Clusters", 2, 10, 4)
+        cluster_features = st.multiselect("Select Features for Clustering", df.columns[1:-1], default=['Production (MMcfge)','Porosity (decimal)','Depth (feet)'])
+        
+        km = KMeans(n_clusters=n_clusters, random_state=42)
+        df['Cluster'] = km.fit_predict(df[cluster_features])
+        
         fig = px.scatter(
-            df_cluster,
-            x='Depth (feet)',
-            y='Production (MMcfge)',
-            color='Cluster',
-            hover_data=['ID', 'Porosity (decimal)']
+            df, x="Depth (feet)", y="Production (MMcfge)", color="Cluster",
+            hover_data=['ID']
         )
         st.plotly_chart(fig, use_container_width=True)
 
-# ------------------------------------------------
-# Page 2: Economic Analysis
-# ------------------------------------------------
+# ---------------------------
+# PAGE 2: Economic Analysis
+# ---------------------------
 elif page == "Economic Analysis":
-    st.header("Economic Analysis: CAPEX, OPEX, Revenue & Profit")
+    st.title("Economic Analysis")
 
-    df_econ = df.copy()
-
-    # CAPEX
-    df_econ['CAPEX'] = (
-        base_drilling_cost * df_econ['Depth (feet)'] +
-        base_completion_cost * df_econ['Gross Perforated Interval (ft)'] +
-        proppant_cost_per_lb * df_econ['Proppant per foot (lbs)'] * df_econ['Gross Perforated Interval (ft)'] +
-        water_cost_per_bbl * df_econ['Water per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)'] +
-        additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)']
+    st.subheader("Adjust Cost Parameters")
+    base_drilling_cost = st.slider("Base Drilling Cost ($/ft)", 500, 5000, 1000)
+    base_completion_cost = st.slider("Base Completion Cost ($/ft)", 200, 2000, 500)
+    proppant_cost_per_lb = st.slider("Proppant Cost ($/lb)", 0.01, 1.0, 0.1)
+    water_cost_per_bbl = st.slider("Water Cost ($/bbl)", 0.5, 5.0, 1.5)
+    additive_cost_per_bbl = st.slider("Additive Cost ($/bbl)", 0.5, 5.0, 2.0)
+    
+    base_maintenance_cost = st.slider("Maintenance Cost ($/year)", 10000, 100000, 30000)
+    base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
+    gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
+    
+    # Calculate CAPEX
+    df['CAPEX'] = (
+        base_drilling_cost * df['Depth (feet)'] +
+        base_completion_cost * df['Gross Perforated Interval (ft)'] +
+        proppant_cost_per_lb * df['Proppant per foot (lbs)'] * df['Gross Perforated Interval (ft)'] +
+        water_cost_per_bbl * df['Water per foot (bbls)'] * df['Gross Perforated Interval (ft)'] +
+        additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)']
     )
-
-    # OPEX
-    df_econ['OPEX'] = (
+    
+    # Calculate OPEX
+    df['OPEX'] = (
         base_maintenance_cost +
         base_pump_cost +
-        proppant_cost_per_lb * df_econ['Proppant per foot (lbs)'] * df_econ['Gross Perforated Interval (ft)'] +
-        water_cost_per_bbl * df_econ['Water per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)'] +
-        additive_cost_per_bbl * df_econ['Additive per foot (bbls)'] * df_econ['Gross Perforated Interval (ft)']
+        (proppant_cost_per_lb * df['Proppant per foot (lbs)'] * df['Gross Perforated Interval (ft)']) +
+        (water_cost_per_bbl * df['Water per foot (bbls)'] * df['Gross Perforated Interval (ft)']) +
+        (additive_cost_per_bbl * df['Additive per foot (bbls)'] * df['Gross Perforated Interval (ft)'])
     )
-
+    
     # Revenue & Profit
-    df_econ['Revenue'] = df_econ['Production (MMcfge)'] * gas_price
-    df_econ['Profit'] = df_econ['Revenue'] - df_econ['CAPEX'] - df_econ['OPEX']
+    df['Revenue'] = df['Production (MMcfge)'] * gas_price
+    df['Profit'] = df['Revenue'] - df['CAPEX'] - df['OPEX']
+    
+    st.subheader("Economic Metrics")
+    st.dataframe(df[['ID','CAPEX','OPEX','Revenue','Profit']])
+    
+    st.subheader("Charts")
+    fig1 = px.scatter(df, x='Production (MMcfge)', y='Revenue', size='Profit', color='Profit')
+    fig2 = px.scatter(df, x='Production (MMcfge)', y='Profit', size='Revenue', color='Revenue')
+    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True)
 
-    st.subheader("Production vs Economic Metrics")
-    st.plotly_chart(
-        px.scatter(df_econ, x='Production (MMcfge)', y='Revenue', title='Production vs Revenue'),
-        use_container_width=True
-    )
-    st.plotly_chart(
-        px.scatter(df_econ, x='Production (MMcfge)', y='Profit', title='Production vs Profit'),
-        use_container_width=True
-    )
-
-# ------------------------------------------------
-# Page 3: Reservoir Engineering Dashboard
-# ------------------------------------------------
+# ---------------------------
+# PAGE 3: Reservoir Engineering Dashboard
+# ---------------------------
 elif page == "Reservoir Engineering Dashboard":
-    st.header("Reservoir Engineering Insights")
+    st.title("Reservoir Engineering Dashboard")
+    
+    st.subheader("Production vs Depth")
+    fig = px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', color='Porosity (decimal)')
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.subheader("Production vs Porosity")
+    fig = px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', trendline="ols")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.subheader("Stimulation Effectiveness")
+    fig = px.scatter_3d(df,
+                        x='Proppant per foot (lbs)',
+                        y='Water per foot (bbls)',
+                        z='Production (MMcfge)',
+                        color='Additive per foot (bbls)',
+                        size='Gross Perforated Interval (ft)')
+    st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(
-        px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', trendline="ols", title="Production vs Depth"),
-        use_container_width=True
-    )
-
-    st.plotly_chart(
-        px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', trendline="ols", title="Production vs Porosity"),
-        use_container_width=True
-    )
-
-    st.plotly_chart(
-        px.scatter(
-            df,
-            x='Proppant per foot (lbs)',
-            y='Production (MMcfge)',
-            color='Water per foot (bbls)',
-            size='Additive per foot (bbls)',
-            title="Stimulation Effectiveness"
-        ),
-        use_container_width=True
-    )
-
-# ------------------------------------------------
-# Page 4: Prediction
-# ------------------------------------------------
+# ---------------------------
+# PAGE 4: Reservoir Prediction
+# ---------------------------
 elif page == "Reservoir Prediction":
-    st.header("Predict Production & Economic Outcomes for a New Well")
-
-    input_dict = {}
-    for col in X.columns:
-        input_dict[col] = st.number_input(
-            col,
-            float(df[col].min()),
-            float(df[col].max()),
-            float(df[col].mean())
-        )
-
-    input_df = pd.DataFrame([input_dict])
+    st.title("Predict New Well Production & Economics")
+    
+    st.subheader("Input Parameters")
+    input_data = {}
+    for col in feature_cols:
+        input_data[col] = st.number_input(col, value=float(df[col].mean()))
+    
+    input_df = pd.DataFrame([input_data])
     input_scaled = scaler.transform(input_df)
-    pred_production = gbr.predict(input_scaled)[0]
-
-    st.success(f"Predicted Production: {pred_production:.2f} MMcfge")
-
-    # CAPEX Prediction
-    predicted_capex = (
-        base_drilling_cost * input_dict['Depth (feet)'] +
-        base_completion_cost * input_dict['Gross Perforated Interval (ft)'] +
-        proppant_cost_per_lb * input_dict['Proppant per foot (lbs)'] *
-        input_dict['Gross Perforated Interval (ft)'] +
-        water_cost_per_bbl * input_dict['Water per foot (bbls)'] *
-        input_dict['Gross Perforated Interval (ft)'] +
-        additive_cost_per_bbl * input_dict['Additive per foot (bbls)'] *
-        input_dict['Gross Perforated Interval (ft)']
+    pred_production = model.predict(input_scaled)[0]
+    st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
+    
+    # Estimate CAPEX & OPEX
+    capex = (
+        base_drilling_cost * input_df['Depth (feet)'].iloc[0] +
+        base_completion_cost * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+        proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+        water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+        additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0]
     )
-
-    # OPEX Prediction
-    predicted_opex = (
-        base_maintenance_cost +
-        base_pump_cost +
-        proppant_cost_per_lb * input_dict['Proppant per foot (lbs)'] *
-        input_dict['Gross Perforated Interval (ft)'] +
-        water_cost_per_bbl * input_dict['Water per foot (bbls)'] *
-        input_dict['Gross Perforated Interval (ft)'] +
-        additive_cost_per_bbl * input_dict['Additive per foot (bbls)'] *
-        input_dict['Gross Perforated Interval (ft)']
+    
+    opex = (
+        base_maintenance_cost + base_pump_cost +
+        proppant_cost_per_lb * input_df['Proppant per foot (lbs)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+        water_cost_per_bbl * input_df['Water per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0] +
+        additive_cost_per_bbl * input_df['Additive per foot (bbls)'].iloc[0] * input_df['Gross Perforated Interval (ft)'].iloc[0]
     )
-
-    predicted_revenue = pred_production * gas_price
-    predicted_profit = predicted_revenue - predicted_capex - predicted_opex
-
-    st.write(f"**Predicted CAPEX:** ${predicted_capex:,.2f}")
-    st.write(f"**Predicted OPEX:** ${predicted_opex:,.2f}")
-    st.write(f"**Predicted Revenue:** ${predicted_revenue:,.2f}")
-    st.write(f"**Predicted Profit:** ${predicted_profit:,.2f}")
+    
+    revenue = pred_production * gas_price
+    profit = revenue - capex - opex
+    
+    st.subheader("Economic Estimate")
+    st.write(f"CAPEX: ${capex:,.2f}")
+    st.write(f"OPEX: ${opex:,.2f}")
+    st.write(f"Revenue: ${revenue:,.2f}")
+    st.write(f"Profit: ${profit:,.2f}")
