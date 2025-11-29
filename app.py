@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
@@ -76,6 +75,7 @@ if page == "Economic Analysis":
     base_pump_cost = st.slider("Pump/Energy Cost ($/year)", 10000, 50000, 20000)
     gas_price = st.slider("Gas Price ($/MMcfge)", 1, 20, 5)
     
+    # Existing wells economic calculation
     df['CAPEX'] = (
         base_drilling_cost * df['Depth (feet)'] +
         base_completion_cost * df['Gross Perforated Interval (ft)'] +
@@ -95,14 +95,23 @@ if page == "Economic Analysis":
     df['Revenue'] = df['Production (MMcfge)'] * gas_price
     df['Profit'] = df['Revenue'] - df['CAPEX'] - df['OPEX']
     
-    st.subheader("Economic Metrics")
+    st.subheader("Economic Metrics of Existing Wells")
     st.dataframe(df[['ID','CAPEX','OPEX','Revenue','Profit']])
     
-    st.subheader("Charts")
-    fig1 = px.scatter(df, x='Production (MMcfge)', y='Revenue', size='Profit', color='Profit')
-    fig2 = px.scatter(df, x='Production (MMcfge)', y='Profit', size='Revenue', color='Revenue')
-    st.plotly_chart(fig1, use_container_width=True)
-    st.plotly_chart(fig2, use_container_width=True)
+    # New well economics (from prediction)
+    if 'predicted_production' in st.session_state:
+        st.subheader("Economic Metrics for Predicted Well")
+        new_prod = st.session_state.predicted_production
+        new_capex = base_drilling_cost * df['Depth (feet)'].mean() + \
+                    base_completion_cost * df['Gross Perforated Interval (ft)'].mean()
+        new_opex = base_maintenance_cost + base_pump_cost
+        new_revenue = new_prod * gas_price
+        new_profit = new_revenue - new_capex - new_opex
+        st.write(f"Predicted Production: {new_prod:.2f} MMcfge")
+        st.write(f"CAPEX: ${new_capex:,.2f}")
+        st.write(f"OPEX: ${new_opex:,.2f}")
+        st.write(f"Revenue: ${new_revenue:,.2f}")
+        st.write(f"Profit: ${new_profit:,.2f}")
 
 # ---------------------------
 # PAGE 2: Reservoir Engineering Dashboard
@@ -112,21 +121,18 @@ elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     
     st.subheader("Production vs Depth")
-    fig = px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', color='Porosity (decimal)')
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(px.scatter(df, x='Depth (feet)', y='Production (MMcfge)', color='Porosity (decimal)'), use_container_width=True)
     
     st.subheader("Production vs Porosity")
-    fig = px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', trendline="ols")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(px.scatter(df, x='Porosity (decimal)', y='Production (MMcfge)', trendline="ols"), use_container_width=True)
     
     st.subheader("Stimulation Effectiveness")
-    fig = px.scatter_3d(df,
+    st.plotly_chart(px.scatter_3d(df,
                         x='Proppant per foot (lbs)',
                         y='Water per foot (bbls)',
                         z='Production (MMcfge)',
                         color='Additive per foot (bbls)',
-                        size='Gross Perforated Interval (ft)')
-    st.plotly_chart(fig, use_container_width=True)
+                        size='Gross Perforated Interval (ft)'), use_container_width=True)
 
 # ---------------------------
 # PAGE 3: Reservoir Prediction
@@ -158,3 +164,4 @@ elif page == "Reservoir Prediction":
         input_scaled = scaler.transform(input_df)
         pred_production = model.predict(input_scaled)[0]
         st.success(f"Predicted Production (MMcfge): {pred_production:.2f}")
+        st.session_state.predicted_production = pred_production  # Save for economic analysis
