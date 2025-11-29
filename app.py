@@ -140,9 +140,9 @@ elif page == "Reservoir Engineering Dashboard":
     st.title("Reservoir Engineering Dashboard")
     hover_cols = ["ID"]
 
+    # Features to plot (excluding Gross Perforated Interval and Resistivity)
     features_to_plot = [
         "Porosity (decimal)", 
-        "Resistivity (Ohm-m)", 
         "Additive per foot (bbls)",
         "Water per foot (bbls)", 
         "Proppant per foot (lbs)"
@@ -155,13 +155,15 @@ elif page == "Reservoir Engineering Dashboard":
         binned_df = df.groupby('bin', as_index=False)['Production (MMcfge)'].mean()
         binned_df['bin_center'] = binned_df['bin'].apply(lambda x: x.mid)
         
-        # Plot
+        # Plot with proper scaling
         fig = px.line(
             binned_df,
             x='bin_center',
             y='Production (MMcfge)',
-            labels={'bin_center': xcol, 'Production (MMcfge)': 'Production (MMcfge)'}
+            labels={'bin_center': xcol, 'Production (MMcfge)': 'Production (MMcfge)'},
         )
+        fig.update_xaxes(dtick=(binned_df['bin_center'].max() - binned_df['bin_center'].min())/bins)
+        fig.update_yaxes(title_text="Production (MMcfge)")
         st.subheader(title)
         st.plotly_chart(fig, use_container_width=True)
     
@@ -203,4 +205,5 @@ elif page == "Reservoir Prediction":
         pred = model.predict(input_df)[0]
         st.success(f"Predicted Production (MMcfge): {pred:.2f}")
         st.session_state.predicted_production = pred
+
 
